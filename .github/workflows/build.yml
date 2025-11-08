@@ -1,0 +1,66 @@
+name: CI — Build (Vite)
+
+on:
+  push:
+    branches: [ main ]
+    tags:
+      - 'v*.*.*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build, zip and upload artifact
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20 and Yarn cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.0'
+          cache: 'yarn'
+
+      - name: Cache yarn cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/yarn
+            ~/.config/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-yarn-
+
+      - name: Install dependencies (Yarn)
+        run: yarn install --frozen-lockfile
+
+      - name: Build (Vite)
+        run: yarn build
+
+      - name: Prepare release artifact
+        run: |
+          mkdir -p release-artifact
+          if [ -d "dist" ]; then
+            zip -r release-artifact/whereabouts-card.zip dist LICENSE README.md manifest.json
+          else
+            echo "dist directory not found — nothing to zip" && exit 1
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: whereabouts-card
+          path: release-artifact/whereabouts-card.zip
+          retention-days: 7
+

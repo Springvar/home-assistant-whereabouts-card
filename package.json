@@ -1,0 +1,20 @@
+{
+  "name": "whereabouts-card",
+  "version": "0.1.0",
+  "description": "Home Assistant Lovelace card to display person's zone",
+  "main": "whereabouts-card.js",
+  "scripts": {
+    "build": "vite build"
+  },
+  "author": "Springvar",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Springvar/home-assistant-whereabouts-card"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "lit": "^3.0.0",
+    "typescript": "^5.0.0",
+    "vite": "^7.2.1"
+  }
+}

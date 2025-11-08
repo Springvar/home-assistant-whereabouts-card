@@ -1,0 +1,7 @@
+{
+    "name": "Whereabouts Card",
+    "filename": "dist/home-assistant-whereabots-card.mjs",
+    "content_in_root": false,
+    "homeassistant": "2024.3.0",
+    "render_readme": true
+}
