@@ -2,149 +2,84 @@ import { LitElement, html, css } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { WhereaboutsCardConfig } from './whereabouts-card';
 
-// Use HTMLElement instead of LitElement for the class.
-export class WhereaboutsCardEditor extends HTMLElement {
-  hass: any;
-  _persons: any[] = [];
-  _availablePersons: string[] = [];
-  _customEntity: string = '';
-  _customName: string = '';
-  static styles = css`
-    div { margin-bottom: 16px; }
-    ul { list-style: none; padding: 0; }
-    li { margin-bottom: 8px; }
-    button { margin-left: 8px; }
-  `;
-
-  constructor() {
-    super();
-    this.attachShadow({ mode: 'open' });
-  }
+export class WhereaboutsCardEditor extends LitElement {
+  @property({ attribute: false }) public hass: any;
+  @state() private _config: WhereaboutsCardConfig = { persons: [] };
 
   setConfig(config: WhereaboutsCardConfig) {
-    this._persons = [...(config.persons || [])];
-    this._render();
+    this._config = { ...config };
   }
 
-  set hassObj(hass: any) {
-    this.hass = hass;
-    this._availablePersons = Object.keys(hass.states).filter(eid => eid.startsWith('person.'));
-    this._render();
+  get availablePersons(): string[] {
+    if (!this.hass) return [];
+    return Object.keys(this.hass.states)
+      .filter(eid => eid.startsWith('person.'))
+      .filter(eid => !this._config.persons.some(p => p.entity_id === eid));
   }
 
-  addPerson(e: Event) {
-    const select = this.shadowRoot!.getElementById('person-dropdown') as HTMLSelectElement;
-    if (select?.value) {
-      this._persons = [
-        ...this._persons,
-        { entity_id: select.value }
-      ];
-      select.value = '';
-      this._updateConfig();
-      this._render();
-    }
-  }
+  render() {
+    if (!this.hass) return html``;
 
-  addCustomPerson() {
-    if (this._customEntity) {
-      this._persons = [
-        ...this._persons,
-        { entity_id: this._customEntity, name: this._customName }
-      ];
-      this._customEntity = '';
-      this._customName = '';
-      this._updateConfig();
-      this._render();
-    }
-  }
-
-  removePerson(idx: number) {
-    this._persons = this._persons.filter((_, i) => i !== idx);
-    this._updateConfig();
-    this._render();
-  }
-
-  _updateConfig() {
-    this.dispatchEvent(
-      new CustomEvent('config-changed', {
-        detail: { config: { persons: this._persons } },
-      })
-    );
-  }
-
-  _onCustomEntityInput(e: any) {
-    this._customEntity = e.target.value;
-  }
-  _onCustomNameInput(e: any) {
-    this._customName = e.target.value;
-  }
-
-  _render() {
-    if (!this.shadowRoot) return;
-    this.shadowRoot.innerHTML = `
-      <style>
-        div { margin-bottom: 16px; }
-        ul { list-style: none; padding: 0; }
-        li { margin-bottom: 8px; }
-        button { margin-left: 8px; }
-      </style>
+    return html`
       <div>
         <label>Add person:</label>
-        <select id="person-dropdown">
-          <option value="">Select...</option>
-          ${
-            this._availablePersons
-              .filter(eid => !this._persons.some(p => p.entity_id === eid))
-              .map(
-                eid =>
-                  `<option value="${eid}">${this.hass?.states[eid].attributes.friendly_name || eid}</option>`
-              )
-              .join('')
-          }
+        <select @change=${this._addPerson}>
+          <option value="">Select a person...</option>
+          ${this.availablePersons.map(eid =>
+            html`<option value=${eid}>${this.hass.states[eid].attributes.friendly_name || eid}</option>`
+          )}
         </select>
-        <button id="add-person-btn">Add</button>
       </div>
       <div>
-        <label>Add custom entity:</label>
-        <input id="custom-entity" type="text" placeholder="Entity id" value="${this._customEntity}">
-        <input id="custom-name" type="text" placeholder="Name (optional)" value="${this._customName}">
-        <button id="add-custom-btn">Add custom</button>
-      </div>
-      <div style="margin-top: 1em;">
-        <label>Configured persons:</label>
+        <label>Selected persons:</label>
         <ul>
-          ${this._persons
-            .map(
-              (p, idx) => `
+          ${this._config.persons.map((person, idx) =>
+            html`
               <li>
-                ${p.name || this.hass?.states[p.entity_id]?.attributes.friendly_name || p.entity_id}
-                (${p.entity_id})
-                <button data-idx="${idx}" class="remove-person-btn">Remove</button>
-              </li>`
-            )
-            .join('')}
+                ${person.name || this.hass.states[person.entity_id]?.attributes.friendly_name || person.entity_id}
+                (${person.entity_id})
+                <button @click=${() => this._removePerson(idx)}>Remove</button>
+              </li>
+            `
+          )}
         </ul>
       </div>
     `;
-
-    // Add event listeners
-    this.shadowRoot.getElementById('add-person-btn')?.addEventListener('click', (e) => this.addPerson(e));
-    this.shadowRoot.getElementById('add-custom-btn')?.addEventListener('click', () => this.addCustomPerson());
-
-    this.shadowRoot.getElementById('custom-entity')?.addEventListener('input', (e) => this._onCustomEntityInput(e));
-    this.shadowRoot.getElementById('custom-name')?.addEventListener('input', (e) => this._onCustomNameInput(e));
-
-    Array.from(this.shadowRoot.querySelectorAll('.remove-person-btn')).forEach((btn: Element) => {
-      btn.addEventListener('click', () => {
-        const idx = parseInt((btn as HTMLButtonElement).getAttribute('data-idx') || '0', 10);
-        this.removePerson(idx);
-      });
-    });
   }
 
-  connectedCallback() {
-    this._render();
+  _addPerson(e: Event) {
+    const select = e.target as HTMLSelectElement;
+    const entity_id = select.value;
+    if (entity_id) {
+      this._config = {
+        ...this._config,
+        persons: [...this._config.persons, { entity_id }]
+      };
+      select.value = '';
+      this._emitConfigChanged();
+    }
   }
+
+  _removePerson(idx: number) {
+    const newPersons = this._config.persons.filter((_, i) => i !== idx);
+    this._config = { ...this._config, persons: newPersons };
+    this._emitConfigChanged();
+  }
+
+  _emitConfigChanged() {
+    this.dispatchEvent(new CustomEvent('config-changed', {
+      detail: { config: this._config },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  static styles = css`
+    div { margin-bottom: 1em; }
+    ul { list-style: none; padding: 0; }
+    li { margin-bottom: 0.5em; }
+    button { margin-left: 1em; }
+  `;
 }
 
 customElements.define('whereabouts-card-editor', WhereaboutsCardEditor);

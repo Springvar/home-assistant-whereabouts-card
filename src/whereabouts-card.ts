@@ -1,5 +1,6 @@
 import { LitElement, html, css } from 'lit';
 import { property } from 'lit/decorators.js';
+import './whereabouts-card-editor';
 
 interface PersonConfig {
   entity_id: string;
@@ -23,15 +24,14 @@ class WhereaboutsCard extends LitElement {
     this.hass = undefined;
   }
 
-  static getConfigElement() {
+  static async getConfigElement() {
+    await import('./whereabouts-card-editor');
     return document.createElement('whereabouts-card-editor');
   }
 
-  // Add static property for Lovelace editor autodetection
   static getConfigElementStatic = () => document.createElement('whereabouts-card-editor');
 
   static getStubConfig(hass: any) {
-    // Suggest first person entity if available
     const persons = Object.keys(hass.states)
       .filter(eid => eid.startsWith('person.'))
       .slice(0, 1)
@@ -81,7 +81,12 @@ class WhereaboutsCard extends LitElement {
 
 customElements.define('whereabouts-card', WhereaboutsCard);
 
-// Ensure the editor is registered (for HA compatibility)
-if (!customElements.get('whereabouts-card-editor')) {
-  import('./whereabouts-card-editor');
+if (typeof window !== 'undefined') {
+  (window as any).customCards = (window as any).customCards || [];
+  (window as any).customCards.push({
+    type: 'whereabouts-card',
+    name: 'Whereabouts Card',
+    preview: false,
+    description: "Show one or more person's whereabouts as a simple card.",
+  });
 }
