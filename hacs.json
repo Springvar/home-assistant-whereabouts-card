@@ -1,7 +1,5 @@
 {
     "name": "Whereabouts Card",
-    "filename": "dist/home-assistant-whereabots-card.mjs",
-    "content_in_root": false,
-    "homeassistant": "2024.3.0",
+    "filename": "home-assistant-whereabouts-card.js",
     "render_readme": true
 }

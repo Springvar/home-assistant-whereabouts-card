@@ -1,155 +1,31 @@
-name: Build and attach Vite artifact to release
+name: Release
 
 on:
   release:
     types: [published]
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag for release (e.g. v1.2.3)'
-        required: true
-      name:
-        description: 'Release name'
-        required: false
-      body:
-        description: 'Release notes'
-        required: false
-      prerelease:
-        description: 'Pre-release? (true/false)'
-        required: false
-        default: 'false'
 
 permissions:
   contents: write
 
 jobs:
-  build-and-upload:
+  release:
+    name: Prepare release
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v1
+
+      # Build
+      - name: Build the file
+        run: |
+          npm install
+          npm run build
+
+      # Upload build file to the release as an asset.
+      - name: Upload JS to release
+        uses: svenstaro/upload-release-action@v1-release
         with:
-          fetch-depth: 0
-
-      - name: Setup Node.js 20 and Yarn cache
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20.19.0'
-          cache: 'yarn'
-
-      - name: Cache yarn cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/yarn
-            ~/.config/yarn
-          key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-yarn-
-
-      - name: Install dependencies (Yarn)
-        run: yarn install --frozen-lockfile
-
-      - name: Build (Vite)
-        run: yarn build
-
-      # --- Release Event (tagged GitHub Release) ---
-      - name: Upload whereabouts-card.js asset to release
-        if: github.event_name == 'release'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: dist/whereabouts-card.js
-          asset_name: whereabouts-card.js
-          asset_content_type: application/javascript
-
-      - name: Upload README.md to release
-        if: github.event_name == 'release'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: README.md
-          asset_name: README.md
-          asset_content_type: text/markdown
-
-      - name: Upload LICENSE to release
-        if: github.event_name == 'release'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: LICENSE
-          asset_name: LICENSE
-          asset_content_type: text/plain
-
-      - name: Upload manifest.json to release
-        if: github.event_name == 'release'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: manifest.json
-          asset_name: manifest.json
-          asset_content_type: application/json
-
-      # --- Manual Workflow Dispatch (creates a release, then uploads assets) ---
-      - name: Create release (manual trigger)
-        if: github.event_name == 'workflow_dispatch'
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ github.event.inputs.tag }}
-          name: ${{ github.event.inputs.name }}
-          body: ${{ github.event.inputs.body }}
-          draft: false
-          prerelease: ${{ github.event.inputs.prerelease }}
-
-      - name: Upload whereabouts-card.js asset to created release
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/whereabouts-card.js
-          asset_name: whereabouts-card.js
-          asset_content_type: application/javascript
-
-      - name: Upload README.md to created release
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: README.md
-          asset_name: README.md
-          asset_content_type: text/markdown
-
-      - name: Upload LICENSE to created release
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: LICENSE
-          asset_name: LICENSE
-          asset_content_type: text/plain
-
-      - name: Upload manifest.json to created release
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: manifest.json
-          asset_name: manifest.json
-          asset_content_type: application/json
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: dist/home-assistant-whereabouts-card.js
+          asset_name: home-assistant-whereabouts-card.js
+          tag: ${{ github.ref }}
+          overwrite: true
