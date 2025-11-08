@@ -11,12 +11,24 @@ export interface WhereaboutsCardConfig {
 }
 
 class WhereaboutsCard extends LitElement {
-  @property({ type: Array }) persons: PersonConfig[] = [];
-  @property({ attribute: false }) hass: any;
+  @property({ type: Array })
+  persons: PersonConfig[];
+
+  @property({ attribute: false })
+  hass: any;
+
+  constructor() {
+    super();
+    this.persons = [];
+    this.hass = undefined;
+  }
 
   static getConfigElement() {
     return document.createElement('whereabouts-card-editor');
   }
+
+  // Add static property for Lovelace editor autodetection
+  static getConfigElementStatic = () => document.createElement('whereabouts-card-editor');
 
   static getStubConfig(hass: any) {
     // Suggest first person entity if available
@@ -68,3 +80,8 @@ class WhereaboutsCard extends LitElement {
 }
 
 customElements.define('whereabouts-card', WhereaboutsCard);
+
+// Ensure the editor is registered (for HA compatibility)
+if (!customElements.get('whereabouts-card-editor')) {
+  import('./whereabouts-card-editor');
+}
