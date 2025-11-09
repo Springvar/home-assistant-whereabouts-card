@@ -8,21 +8,37 @@ interface PersonConfig {
   name?: string;
 }
 
+interface ZoneGroup {
+  name: string;
+  zones: string[];
+  preposition?: string;
+}
+
 export interface WhereaboutsCardConfig {
   persons: PersonConfig[];
   show_title?: boolean;
   title?: string;
+  default_verb?: string;
+  default_preposition?: string;
+  zone_groups?: ZoneGroup[];
 }
 
 class WhereaboutsCard extends LitElement {
   @property({ type: Array })
   persons: PersonConfig[];
-
   @property({ type: Boolean })
   show_title = true;
-
   @property({ type: String })
   title = "Whereabouts";
+
+  @property({ type: String })
+  default_verb = "is";
+
+  @property({ type: String })
+  default_preposition = "in";
+
+  @property({ type: Array })
+  zone_groups: ZoneGroup[] = [];
 
   @property({ attribute: false })
   hass: any;
@@ -33,6 +49,9 @@ class WhereaboutsCard extends LitElement {
     this.hass = undefined;
     this.show_title = true;
     this.title = "Whereabouts";
+    this.default_verb = "is";
+    this.default_preposition = "in";
+    this.zone_groups = [];
   }
 
   static async getConfigElement(config: WhereaboutsCardConfig) {
@@ -53,7 +72,7 @@ class WhereaboutsCard extends LitElement {
       .filter(eid => eid.startsWith('person.'))
       .slice(0, 1)
       .map(eid => ({ entity_id: eid }));
-    return { persons, show_title: true, title: "Whereabouts" };
+    return { persons, show_title: true, title: "Whereabouts", default_verb: "is", default_preposition: "in", zone_groups: [] };
   }
 
   static get properties() {
@@ -61,7 +80,10 @@ class WhereaboutsCard extends LitElement {
       hass: {},
       persons: {},
       show_title: {},
-      title: {}
+      title: {},
+      default_verb: {},
+      default_preposition: {},
+      zone_groups: {}
     };
   }
 
@@ -69,6 +91,9 @@ class WhereaboutsCard extends LitElement {
     this.persons = config.persons || [];
     this.show_title = config.show_title !== undefined ? config.show_title : true;
     this.title = config.title || "Whereabouts";
+    this.default_verb = config.default_verb || "is";
+    this.default_preposition = config.default_preposition || "in";
+    this.zone_groups = config.zone_groups || [];
   }
 
   render() {
@@ -84,7 +109,16 @@ class WhereaboutsCard extends LitElement {
             if (!entity) return html`<div>${person.entity_id} – unavailable</div>`;
             const name = person.name || entity.attributes.friendly_name || person.entity_id;
             const zone = entity.state;
-            return html`<div>${name} is in ${zone}</div>`;
+            let usedPreposition = this.default_preposition;
+            if (Array.isArray(this.zone_groups)) {
+              for (const group of this.zone_groups) {
+                if (group.zones.includes(zone) && group.preposition) {
+                  usedPreposition = group.preposition;
+                  break;
+                }
+              }
+            }
+            return html`<div>${name} ${this.default_verb} ${usedPreposition} ${zone}</div>`;
           })}
         </div>
       </ha-card>

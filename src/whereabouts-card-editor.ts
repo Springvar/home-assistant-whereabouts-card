@@ -2,20 +2,31 @@ import { LitElement, html, css } from 'lit';
 import { property, state } from 'lit/decorators.js';
 import { WhereaboutsCardConfig } from './whereabouts-card';
 
+interface ZoneGroup {
+  name: string;
+  zones: string[];
+  preposition?: string;
+}
+
 export class WhereaboutsCardEditor extends LitElement {
   @property({ attribute: false }) public hass: any;
-  @state() private _config: WhereaboutsCardConfig = { persons: [] };
-
-  setConfig(config: WhereaboutsCardConfig) {
-    this._config = { ...config };
-    this.requestUpdate();
-  }
+  @state() private _config: WhereaboutsCardConfig = { persons: [], zone_groups: [] };
 
   get availablePersons(): string[] {
     if (!this.hass) return [];
     return Object.keys(this.hass.states)
       .filter(eid => eid.startsWith('person.'))
       .filter(eid => !this._config.persons.some(p => p.entity_id === eid));
+  }
+
+  get availableZones(): string[] {
+    if (!this.hass) return [];
+    return Object.keys(this.hass.states).filter(eid => eid.startsWith('zone.'));
+  }
+
+  setConfig(config: WhereaboutsCardConfig) {
+    this._config = { ...config };
+      this.requestUpdate();
   }
 
   render() {
@@ -39,6 +50,62 @@ export class WhereaboutsCardEditor extends LitElement {
           @input=${this._titleChanged}
         />
       </div>
+      <div>
+        <label>Default verb:</label>
+        <input
+          type="text"
+          .value=${this._config.default_verb ?? "is"}
+          @input=${this._defaultVerbChanged}
+        />
+      </div>
+      <div>
+        <label>Default preposition:</label>
+        <input
+          type="text"
+          .value=${this._config.default_preposition ?? "in"}
+          @input=${this._defaultPrepositionChanged}
+        />
+      </div>
+
+      <div>
+        <label>Zone Groups:</label>
+        <button @click=${this._addZoneGroup}>Add group</button>
+        <div>
+          ${this._config.zone_groups?.map((group, gidx) => html`
+            <fieldset style="margin-bottom:1em;">
+              <legend>
+                <input type="text" .value=${group.name} @input=${(e: Event) => this._zoneGroupNameChanged(gidx, e)} placeholder="Group Name" />
+                <button @click=${() => this._removeZoneGroup(gidx)}>Remove Group</button>
+              </legend>
+              <label>
+                Preposition:
+                <input type="text" .value=${group.preposition ?? ""} @input=${(e: Event) => this._zoneGroupPrepositionChanged(gidx, e)} placeholder="(optional, e.g., at)" />
+              </label>
+              <div>
+                <label>Add zone:</label>
+                <select @change=${(e: Event) => this._addZoneToGroup(gidx, e)}>
+                  <option value="">Select a zone...</option>
+                  ${this.availableZones.filter(zid => !group.zones.includes(zid)).map(zid =>
+                    html`<option value=${zid}>${this.hass.states[zid]?.attributes?.friendly_name || zid}</option>`
+                  )}
+                </select>
+              </div>
+              <div>
+                Zones:
+                <ul>
+                  ${group.zones.map((zid, zidx) => html`
+                    <li>
+                      ${this.hass.states[zid]?.attributes?.friendly_name || zid}
+                      <button @click=${() => this._removeZoneFromGroup(gidx, zidx)}>Remove</button>
+                    </li>
+                  `)}
+                </ul>
+              </div>
+            </fieldset>
+          `)}
+        </div>
+      </div>
+
       <div>
         <label>Add person:</label>
         <select @change=${this._addPerson}>
@@ -72,14 +139,34 @@ export class WhereaboutsCardEditor extends LitElement {
       show_title: checked,
       };
       this.requestUpdate();
-    this._emitConfigChanged();
-  }
+      this._emitConfigChanged();
+    }
 
   _titleChanged(e: Event) {
     const value = (e.target as HTMLInputElement).value;
     this._config = {
       ...this._config,
       title: value,
+    };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _defaultVerbChanged(e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+      this._config = {
+        ...this._config,
+      default_verb: value,
+      };
+      this.requestUpdate();
+      this._emitConfigChanged();
+    }
+
+  _defaultPrepositionChanged(e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    this._config = {
+      ...this._config,
+      default_preposition: value,
     };
     this.requestUpdate();
     this._emitConfigChanged();
@@ -109,6 +196,59 @@ export class WhereaboutsCardEditor extends LitElement {
     this._emitConfigChanged();
   }
 
+  _addZoneGroup() {
+    const added = [...(this._config.zone_groups ?? []), { name: '', zones: [] }];
+    this._config = { ...this._config, zone_groups: added };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _removeZoneGroup(idx: number) {
+    const updated = this._config.zone_groups?.filter((_, i) => i !== idx) ?? [];
+    this._config = { ...this._config, zone_groups: updated };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _zoneGroupNameChanged(gidx: number, e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    const groups = [...(this._config.zone_groups ?? [])];
+    groups[gidx] = { ...groups[gidx], name: value };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _zoneGroupPrepositionChanged(gidx: number, e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    const groups = [...(this._config.zone_groups ?? [])];
+    groups[gidx] = { ...groups[gidx], preposition: value };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _addZoneToGroup(gidx: number, e: Event) {
+    const select = e.target as HTMLSelectElement;
+    const zid = select.value;
+    if (zid && !this._config.zone_groups?.[gidx].zones.includes(zid)) {
+      const groups = [...(this._config.zone_groups ?? [])];
+      groups[gidx] = { ...groups[gidx], zones: [...groups[gidx].zones, zid] };
+      this._config = { ...this._config, zone_groups: groups };
+      select.value = '';
+      this.requestUpdate();
+      this._emitConfigChanged();
+    }
+  }
+
+  _removeZoneFromGroup(gidx: number, zidx: number) {
+    const groups = [...(this._config.zone_groups ?? [])];
+    groups[gidx] = { ...groups[gidx], zones: groups[gidx].zones.filter((_, i) => i !== zidx) };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
   _emitConfigChanged() {
     this.dispatchEvent(new CustomEvent('config-changed', {
       detail: { config: this._config },
@@ -123,6 +263,8 @@ export class WhereaboutsCardEditor extends LitElement {
     li { margin-bottom: 0.5em; }
     button { margin-left: 1em; }
     input[type="text"] { margin-left: 1em; }
+    fieldset { border: 1px solid #ccc; padding: 1em; }
+    legend { font-weight: bold; }
   `;
 }
 
