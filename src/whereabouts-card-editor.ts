@@ -3,9 +3,10 @@ import { property, state } from 'lit/decorators.js';
 import { WhereaboutsCardConfig } from './whereabouts-card';
 
 interface ZoneGroup {
-  name: string;
+  name?: string;
   zones: string[];
   preposition?: string;
+  show_preposition?: boolean;
 }
 
 export class WhereaboutsCardEditor extends LitElement {
@@ -21,12 +22,24 @@ export class WhereaboutsCardEditor extends LitElement {
 
   get availableZones(): string[] {
     if (!this.hass) return [];
-    return Object.keys(this.hass.states).filter(eid => eid.startsWith('zone.'));
+    let allZones = Object.keys(this.hass.states).filter(eid => eid.startsWith('zone.'));
+    const homeZonePresent = allZones.includes('zone.home');
+    if (!homeZonePresent) {
+      allZones = ['home', ...allZones];
+    }
+    const usedZones = new Set(
+      (this._config.zone_groups ?? []).flatMap(g => g.zones)
+    );
+    return allZones.filter(zid => !usedZones.has(zid));
   }
 
   setConfig(config: WhereaboutsCardConfig) {
     this._config = { ...config };
-      this.requestUpdate();
+    this._config.zone_groups = (this._config.zone_groups || []).map(zg => ({
+      ...zg,
+      show_preposition: zg.show_preposition !== false
+    }));
+    this.requestUpdate();
   }
 
   render() {
@@ -66,7 +79,6 @@ export class WhereaboutsCardEditor extends LitElement {
           @input=${this._defaultPrepositionChanged}
         />
       </div>
-
       <div>
         <label>Zone Groups:</label>
         <button @click=${this._addZoneGroup}>Add group</button>
@@ -74,9 +86,15 @@ export class WhereaboutsCardEditor extends LitElement {
           ${this._config.zone_groups?.map((group, gidx) => html`
             <fieldset style="margin-bottom:1em;">
               <legend>
-                <input type="text" .value=${group.name} @input=${(e: Event) => this._zoneGroupNameChanged(gidx, e)} placeholder="Group Name" />
+                <input type="text" .value=${group.name ?? ""} @input=${(e: Event) => this._zoneGroupNameChanged(gidx, e)} placeholder="Group Name (optional)" />
                 <button @click=${() => this._removeZoneGroup(gidx)}>Remove Group</button>
               </legend>
+              <label>
+                <input type="checkbox"
+                  .checked=${group.show_preposition !== false}
+                  @change=${(e: Event) => this._zoneGroupShowPrepositionChanged(gidx, e)}/>
+                Show preposition
+              </label>
               <label>
                 Preposition:
                 <input type="text" .value=${group.preposition ?? ""} @input=${(e: Event) => this._zoneGroupPrepositionChanged(gidx, e)} placeholder="(optional, e.g., at)" />
@@ -85,8 +103,8 @@ export class WhereaboutsCardEditor extends LitElement {
                 <label>Add zone:</label>
                 <select @change=${(e: Event) => this._addZoneToGroup(gidx, e)}>
                   <option value="">Select a zone...</option>
-                  ${this.availableZones.filter(zid => !group.zones.includes(zid)).map(zid =>
-                    html`<option value=${zid}>${this.hass.states[zid]?.attributes?.friendly_name || zid}</option>`
+                  ${this.availableZones.map(zid =>
+                    html`<option value=${zid}>${this.hass.states[zid]?.attributes?.friendly_name || (zid === 'home' ? 'Home' : zid)}</option>`
                   )}
                 </select>
               </div>
@@ -95,7 +113,7 @@ export class WhereaboutsCardEditor extends LitElement {
                 <ul>
                   ${group.zones.map((zid, zidx) => html`
                     <li>
-                      ${this.hass.states[zid]?.attributes?.friendly_name || zid}
+                      ${this.hass.states[zid]?.attributes?.friendly_name || (zid === 'home' ? 'Home' : zid)}
                       <button @click=${() => this._removeZoneFromGroup(gidx, zidx)}>Remove</button>
                     </li>
                   `)}
@@ -105,13 +123,12 @@ export class WhereaboutsCardEditor extends LitElement {
           `)}
         </div>
       </div>
-
       <div>
         <label>Add person:</label>
         <select @change=${this._addPerson}>
           <option value="">Select a person...</option>
           ${this.availablePersons.map(eid =>
-            html`<option value=${eid}>${this.hass.states[eid].attributes.friendly_name || eid}</option>`
+            html`<option value=${eid}>${this.hass.states[eid]?.attributes?.friendly_name || eid}</option>`
           )}
         </select>
       </div>
@@ -121,7 +138,7 @@ export class WhereaboutsCardEditor extends LitElement {
           ${this._config.persons.map((person, idx) =>
             html`
               <li>
-                ${person.name || this.hass.states[person.entity_id]?.attributes.friendly_name || person.entity_id}
+                ${person.name || this.hass.states[person.entity_id]?.attributes?.friendly_name || person.entity_id}
                 (${person.entity_id})
                 <button @click=${() => this._removePerson(idx)}>Remove</button>
               </li>
@@ -134,13 +151,13 @@ export class WhereaboutsCardEditor extends LitElement {
 
   _toggleShowTitle(e: Event) {
     const checked = (e.target as HTMLInputElement).checked;
-      this._config = {
-        ...this._config,
+    this._config = {
+      ...this._config,
       show_title: checked,
-      };
-      this.requestUpdate();
-      this._emitConfigChanged();
-    }
+    };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
 
   _titleChanged(e: Event) {
     const value = (e.target as HTMLInputElement).value;
@@ -154,13 +171,13 @@ export class WhereaboutsCardEditor extends LitElement {
 
   _defaultVerbChanged(e: Event) {
     const value = (e.target as HTMLInputElement).value;
-      this._config = {
-        ...this._config,
+    this._config = {
+      ...this._config,
       default_verb: value,
-      };
-      this.requestUpdate();
-      this._emitConfigChanged();
-    }
+    };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
 
   _defaultPrepositionChanged(e: Event) {
     const value = (e.target as HTMLInputElement).value;
@@ -197,7 +214,7 @@ export class WhereaboutsCardEditor extends LitElement {
   }
 
   _addZoneGroup() {
-    const added = [...(this._config.zone_groups ?? []), { name: '', zones: [] }];
+    const added = [...(this._config.zone_groups ?? []), { name: '', zones: [], show_preposition: true }];
     this._config = { ...this._config, zone_groups: added };
     this.requestUpdate();
     this._emitConfigChanged();
@@ -228,10 +245,23 @@ export class WhereaboutsCardEditor extends LitElement {
     this._emitConfigChanged();
   }
 
+  _zoneGroupShowPrepositionChanged(gidx: number, e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
+    const groups = [...(this._config.zone_groups ?? [])];
+    groups[gidx] = { ...groups[gidx], show_preposition: checked };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
   _addZoneToGroup(gidx: number, e: Event) {
     const select = e.target as HTMLSelectElement;
     const zid = select.value;
-    if (zid && !this._config.zone_groups?.[gidx].zones.includes(zid)) {
+    if (
+      zid &&
+      !(this._config.zone_groups?.some(g => g.zones.includes(zid))) &&
+      !this._config.zone_groups?.[gidx].zones.includes(zid)
+    ) {
       const groups = [...(this._config.zone_groups ?? [])];
       groups[gidx] = { ...groups[gidx], zones: [...groups[gidx].zones, zid] };
       this._config = { ...this._config, zone_groups: groups };
@@ -269,3 +299,4 @@ export class WhereaboutsCardEditor extends LitElement {
 }
 
 customElements.define('whereabouts-card-editor', WhereaboutsCardEditor);
+

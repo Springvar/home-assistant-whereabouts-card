@@ -9,9 +9,10 @@ interface PersonConfig {
 }
 
 interface ZoneGroup {
-  name: string;
+  name?: string; // now optional
   zones: string[];
   preposition?: string;
+  show_preposition?: boolean;
 }
 
 export interface WhereaboutsCardConfig {
@@ -26,8 +27,10 @@ export interface WhereaboutsCardConfig {
 class WhereaboutsCard extends LitElement {
   @property({ type: Array })
   persons: PersonConfig[];
+
   @property({ type: Boolean })
   show_title = true;
+
   @property({ type: String })
   title = "Whereabouts";
 
@@ -93,7 +96,9 @@ class WhereaboutsCard extends LitElement {
     this.title = config.title || "Whereabouts";
     this.default_verb = config.default_verb || "is";
     this.default_preposition = config.default_preposition || "in";
-    this.zone_groups = config.zone_groups || [];
+    this.zone_groups = (config.zone_groups || []).map(
+      z => ({ ...z, show_preposition: z.show_preposition !== false })
+    );
   }
 
   render() {
@@ -110,15 +115,19 @@ class WhereaboutsCard extends LitElement {
             const name = person.name || entity.attributes.friendly_name || person.entity_id;
             const zone = entity.state;
             let usedPreposition = this.default_preposition;
+            let showPreposition = true;
+            let zoneNameOverride: string | undefined;
             if (Array.isArray(this.zone_groups)) {
               for (const group of this.zone_groups) {
-                if (group.zones.includes(zone) && group.preposition) {
-                  usedPreposition = group.preposition;
+                if (group.zones.includes(zone)) {
+                  showPreposition = group.show_preposition !== false;
+                  if (group.preposition) usedPreposition = group.preposition;
+                  if (group.name) zoneNameOverride = group.name;
                   break;
                 }
               }
             }
-            return html`<div>${name} ${this.default_verb} ${usedPreposition} ${zone}</div>`;
+            return html`<div>${name} ${this.default_verb} ${showPreposition ? usedPreposition + ' ' : ''}${zoneNameOverride ?? zone}</div>`;
           })}
         </div>
       </ha-card>
