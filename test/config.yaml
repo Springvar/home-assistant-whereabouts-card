@@ -1,0 +1,16 @@
+persons:
+  - entity_id: person.jane
+    name: Jane Doe
+  - entity_id: person.john
+    name: John Smith
+show_title: true
+title: Whereabouts Test
+default_verb: is
+default_preposition: at
+zone_groups:
+  - name: "work"
+    zones: ["zone.office", "zone.laboratory"]
+    show_preposition: true
+  - name: "home"
+    zones: ["zone.home"]
+    show_preposition: false

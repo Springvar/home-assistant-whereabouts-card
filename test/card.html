@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Whereabouts Card Test</title>
+  <link rel="icon" href="favicon.ico" />
+  <script type="module" src="../dist/home-assistant-whereabouts-card.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    ha-card { display: block; max-width: 400px; margin: 20px auto; }
+  </style>
+</head>
+<body>
+  <h1>Whereabouts Card Test</h1>
+  <div id="card-container"></div>
+  <script type="module">
+    import { parseYamlConfig } from './parse-yaml.js';
+
+    async function loadYamlConfig(url) {
+      const resp = await fetch(url);
+      const text = await resp.text();
+      return parseYamlConfig(text);
+    }
+    async function setupCard() {
+      const config = await loadYamlConfig('config.yaml');
+      const hass = {
+        states: {
+          'person.jane': { state: 'Main Office', attributes: { friendly_name: 'Jane Doe' } },
+          'person.john': { state: 'Home', attributes: { friendly_name: 'John Smith' } },
+          'zone.office': { attributes: { friendly_name: 'Main Office' } },
+          'zone.laboratory': { attributes: { friendly_name: 'Lab' } },
+          'zone.home': { attributes: { friendly_name: 'Home' } },
+        }
+      };
+      const el = document.createElement('whereabouts-card');
+      el.hass = hass;
+      if (el.setConfig) {
+        el.setConfig(config);
+      }
+      document.getElementById('card-container').appendChild(el);
+    }
+    setupCard();
+  </script>
+</body>
+</html>
