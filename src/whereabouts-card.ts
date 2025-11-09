@@ -8,8 +8,8 @@ interface PersonConfig {
   name?: string;
 }
 
-interface ZoneGroup {
-  name?: string; // now optional
+export interface ZoneGroup {
+  name?: string;
   zones: string[];
   preposition?: string;
   show_preposition?: boolean;
@@ -117,9 +117,15 @@ class WhereaboutsCard extends LitElement {
             let usedPreposition = this.default_preposition;
             let showPreposition = true;
             let zoneNameOverride: string | undefined;
+
+            const zoneId = zone;
+            const zoneFriendlyName = this.hass.states[zone]?.attributes?.friendly_name || zone;
             if (Array.isArray(this.zone_groups)) {
               for (const group of this.zone_groups) {
-                if (group.zones.includes(zone)) {
+                if (
+                  group.zones.includes(zoneId)
+                  || group.zones.includes(zoneFriendlyName)
+                ) {
                   showPreposition = group.show_preposition !== false;
                   if (group.preposition) usedPreposition = group.preposition;
                   if (group.name) zoneNameOverride = group.name;
@@ -127,7 +133,20 @@ class WhereaboutsCard extends LitElement {
                 }
               }
             }
-            return html`<div>${name} ${this.default_verb} ${showPreposition ? usedPreposition + ' ' : ''}${zoneNameOverride ?? zone}</div>`;
+
+            // Prefer .name override, else friendly name, else raw state
+            const zoneDisplay =
+              zoneNameOverride ??
+              this.hass.states[zone]?.attributes?.friendly_name ??
+              zone;
+
+            return html`
+              <div>
+                ${name} ${this.default_verb}
+                ${showPreposition ? usedPreposition + ' ' : ''}
+                ${zoneDisplay}
+              </div>
+            `;
           })}
         </div>
       </ha-card>
@@ -160,4 +179,3 @@ if (typeof window !== 'undefined') {
     description: "Show one or more person's whereabouts as a simple card.",
   });
 }
-
