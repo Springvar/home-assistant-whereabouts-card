@@ -8,6 +8,7 @@ export class WhereaboutsCardEditor extends LitElement {
 
   setConfig(config: WhereaboutsCardConfig) {
     this._config = { ...config };
+    this.requestUpdate();
   }
 
   get availablePersons(): string[] {
@@ -21,6 +22,23 @@ export class WhereaboutsCardEditor extends LitElement {
     if (!this.hass) return html``;
 
     return html`
+      <div>
+        <label>
+          <input
+            type="checkbox"
+            .checked=${this._config.show_title !== false}
+            @change=${this._toggleShowTitle}
+          />
+          Show title
+        </label>
+        <input
+          type="text"
+          placeholder="Card Title"
+          .value=${this._config.title ?? "Whereabouts"}
+          ?disabled=${this._config.show_title === false}
+          @input=${this._titleChanged}
+        />
+      </div>
       <div>
         <label>Add person:</label>
         <select @change=${this._addPerson}>
@@ -47,15 +65,39 @@ export class WhereaboutsCardEditor extends LitElement {
     `;
   }
 
+  _toggleShowTitle(e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
+      this._config = {
+        ...this._config,
+      show_title: checked,
+      };
+      this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _titleChanged(e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    this._config = {
+      ...this._config,
+      title: value,
+    };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
   _addPerson(e: Event) {
     const select = e.target as HTMLSelectElement;
     const entity_id = select.value;
-    if (entity_id) {
+    if (
+      entity_id &&
+      !this._config.persons.some(p => p.entity_id === entity_id)
+    ) {
       this._config = {
         ...this._config,
         persons: [...this._config.persons, { entity_id }]
       };
       select.value = '';
+      this.requestUpdate();
       this._emitConfigChanged();
     }
   }
@@ -63,6 +105,7 @@ export class WhereaboutsCardEditor extends LitElement {
   _removePerson(idx: number) {
     const newPersons = this._config.persons.filter((_, i) => i !== idx);
     this._config = { ...this._config, persons: newPersons };
+    this.requestUpdate();
     this._emitConfigChanged();
   }
 
@@ -79,6 +122,7 @@ export class WhereaboutsCardEditor extends LitElement {
     ul { list-style: none; padding: 0; }
     li { margin-bottom: 0.5em; }
     button { margin-left: 1em; }
+    input[type="text"] { margin-left: 1em; }
   `;
 }
 
