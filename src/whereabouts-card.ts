@@ -26,36 +26,25 @@ export interface WhereaboutsCardConfig {
 
 class WhereaboutsCard extends LitElement {
     @property({ type: Array })
-    persons: PersonConfig[];
+    declare persons: PersonConfig[];
 
     @property({ type: Boolean })
-    show_title = true;
+    declare show_title: boolean;
 
     @property({ type: String })
-    title = 'Whereabouts';
+    declare title: string;
 
     @property({ type: String })
-    default_verb = 'is';
+    declare default_verb: string;
 
     @property({ type: String })
-    default_preposition = 'in';
+    declare default_preposition: string;
 
     @property({ type: Array })
-    zone_groups: ZoneGroup[] = [];
+    declare zone_groups: ZoneGroup[];
 
     @property({ attribute: false })
-    hass: any;
-
-    constructor() {
-        super();
-        this.persons = [];
-        this.hass = undefined;
-        this.show_title = true;
-        this.title = 'Whereabouts';
-        this.default_verb = 'is';
-        this.default_preposition = 'in';
-        this.zone_groups = [];
-    }
+    declare hass: any;
 
     static async getConfigElement(config: WhereaboutsCardConfig) {
         await import('./whereabouts-card-editor');
@@ -98,6 +87,15 @@ class WhereaboutsCard extends LitElement {
     }
 
     setConfig(config: WhereaboutsCardConfig) {
+        // Initialize with defaults if not set
+        if (!this.persons) this.persons = [];
+        if (this.show_title === undefined) this.show_title = true;
+        if (!this.title) this.title = 'Whereabouts';
+        if (!this.default_verb) this.default_verb = 'is';
+        if (!this.default_preposition) this.default_preposition = 'in';
+        if (!this.zone_groups) this.zone_groups = [];
+
+        // Apply config
         this.persons = config.persons || [];
         this.show_title = config.show_title !== undefined ? config.show_title : true;
         this.title = config.title || 'Whereabouts';

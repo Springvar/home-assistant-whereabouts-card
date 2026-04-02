@@ -1,46 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Whereabouts Card Editor Test</title>
-  <link rel="icon" href="favicon.ico" />
-  <script type="module" src="../dist/home-assistant-whereabouts-card.js"></script>
-  <style>
-    body { font-family: sans-serif; margin: 20px; }
-    whereabouts-card-editor { display: block; max-width: 600px; margin: 20px auto; }
-  </style>
-</head>
-<body>
-  <h1>Whereabouts Card Editor Test</h1>
-  <div id="editor-container"></div>
-  <script type="module">
-    import { parseYamlConfig } from './parse-yaml.js';
+    <head>
+        <meta charset="UTF-8" />
+        <title>Whereabouts Card Editor Demo</title>
+        <script type="module" src="../dist/home-assistant-whereabouts-card.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+        <style>
+            :root {
+                --primary-color: #03a9f4;
+                --accent-color: #ff9800;
+                --primary-background-color: #fafafa;
+                --secondary-background-color: #e0e0e0;
+                --ha-card-background: #fff;
+                --ha-card-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.12);
+                --primary-text-color: #212121;
+                --secondary-text-color: #757575;
+            }
+            body {
+                background: #fafafa;
+                font-family: sans-serif;
+                margin: 0;
+                padding: 2em;
+            }
+            whereabouts-card-editor {
+                max-width: 600px;
+                display: block;
+                margin: 2em auto;
+            }
+        </style>
+    </head>
+    <body>
+        <whereabouts-card-editor id="whereaboutseditor"></whereabouts-card-editor>
+        <script>
+            const dummyHass = {
+                states: {
+                    'person.jane': {
+                        state: 'office',
+                        attributes: { friendly_name: 'Jane Doe' }
+                    },
+                    'person.john': {
+                        state: 'home',
+                        attributes: { friendly_name: 'John Smith' }
+                    },
+                    'zone.office': {
+                        attributes: { friendly_name: 'Main Office' }
+                    },
+                    'zone.laboratory': {
+                        attributes: { friendly_name: 'Lab' }
+                    },
+                    'zone.home': {
+                        attributes: { friendly_name: 'Home' }
+                    }
+                }
+            };
 
-    async function loadYamlConfig(url) {
-      const resp = await fetch(url);
-      const text = await resp.text();
-      return parseYamlConfig(text);
-    }
+            function getConfigFile() {
+                const params = new URLSearchParams(window.location.search);
+                const cfgName = params.get('config');
+                return cfgName ? `${cfgName}.yaml` : 'config.yaml';
+            }
 
-    async function setupEditor() {
-      const config = await loadYamlConfig('config.yaml');
-      const hass = {
-        states: {
-          'person.jane': { state: 'Main Office', attributes: { friendly_name: 'Jane Doe' } },
-          'person.john': { state: 'Home', attributes: { friendly_name: 'John Smith' } },
-          'zone.office': { attributes: { friendly_name: 'Main Office' } },
-          'zone.laboratory': { attributes: { friendly_name: 'Lab' } },
-          'zone.home': { attributes: { friendly_name: 'Home' } },
-        }
-      };
-      const el = document.createElement('whereabouts-card-editor');
-      el.hass = hass;
-      if (el.setConfig) {
-        el.setConfig(config);
-      }
-      document.getElementById('editor-container').appendChild(el);
-    }
-    setupEditor();
-  </script>
-</body>
+            fetch(getConfigFile())
+                .then(resp => {
+                    if (!resp.ok) throw new Error("Config file not found");
+                    return resp.text();
+                })
+                .then(yamlSource => {
+                    const cardConfig = window.jsyaml.load(yamlSource);
+                    window.customElements.whenDefined('whereabouts-card-editor').then(() => {
+                        const editor = document.getElementById('whereaboutseditor');
+                        editor.hass = dummyHass;
+                        if (editor.setConfig) {
+                            editor.setConfig(cardConfig);
+                        }
+                    });
+                })
+                .catch(e => {
+                    console.error("Error loading config:", e);
+                });
+        </script>
+    </body>
 </html>
