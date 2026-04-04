@@ -200,6 +200,15 @@ conditions:
 - `where`: Matches against zone entity ID, zone name, zone friendly name, or zone group name
 - `user`: Matches against the current Home Assistant user (by user ID, user name, or associated person entity)
 
+**Temporal Condition Keys:**
+- `is_workday`: `"true"` on Monday-Friday, `"false"` on weekends
+- `is_work_hours`: `"true"` on workdays between 08:00-16:00
+- `is_night`: `"true"` between 00:00-06:00
+- `is_morning`: `"true"` between 06:00-12:00
+- `is_afternoon`: `"true"` between 12:00-18:00
+- `is_evening`: `"true"` between 18:00-24:00
+- `day`: Current day of week (`"mon"`, `"tue"`, `"wed"`, `"thu"`, `"fri"`, `"sat"`, `"sun"`)
+
 Supported operators: `>`, `<`, `>=`, `<=`, `=`, `!=`, `<>`
 
 **Special prefix:**
@@ -423,6 +432,38 @@ activities:
     icon: "mdi:briefcase"
     conditions:
       activity: "working"
+```
+
+**With Temporal Conditions:**
+
+```yaml
+type: custom:whereabouts-card
+persons:
+  - entity_id: person.john
+    namedSensors:
+      activity:
+        entity_id: sensor.john_activity
+activities:
+  # Show specific message during work hours
+  - verb: "is working at the office"
+    icon: "mdi:briefcase-clock"
+    location_override: "-"
+    conditions:
+      is_work_hours: "true"
+      where: "work"
+  # Show different message on weekend mornings
+  - verb: "is having breakfast"
+    icon: "mdi:coffee"
+    conditions:
+      is_workday: "false"
+      is_morning: "true"
+      where: "home"
+  # Day-specific activity
+  - verb: "is at gym (leg day)"
+    icon: "mdi:dumbbell"
+    conditions:
+      day: "mon"
+      where: "gym"
 ```
 
 **Custom Template (Norwegian):**

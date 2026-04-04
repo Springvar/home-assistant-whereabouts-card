@@ -1,6 +1,49 @@
 import type { Activity, PersonConfig } from './types';
 import type { ZoneGroup } from './whereabouts-card';
 
+/**
+ * Temporal condition helpers
+ */
+function getCurrentTime(): Date {
+    return new Date();
+}
+
+function isWorkday(): boolean {
+    const day = getCurrentTime().getDay(); // 0 = Sunday, 6 = Saturday
+    return day >= 1 && day <= 5; // Monday-Friday
+}
+
+function isWorkHours(): boolean {
+    if (!isWorkday()) return false;
+    const hour = getCurrentTime().getHours();
+    return hour >= 8 && hour < 16;
+}
+
+function isNight(): boolean {
+    const hour = getCurrentTime().getHours();
+    return hour >= 0 && hour < 6;
+}
+
+function isMorning(): boolean {
+    const hour = getCurrentTime().getHours();
+    return hour >= 6 && hour < 12;
+}
+
+function isAfternoon(): boolean {
+    const hour = getCurrentTime().getHours();
+    return hour >= 12 && hour < 18;
+}
+
+function isEvening(): boolean {
+    const hour = getCurrentTime().getHours();
+    return hour >= 18 && hour < 24;
+}
+
+function getCurrentDay(): string {
+    const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    return days[getCurrentTime().getDay()];
+}
+
 export interface EvaluatedActivity {
     verb: string;
     location_override?: string;
@@ -53,6 +96,29 @@ export class ActivityEvaluator {
     }
 
     private evaluateCondition(key: string, expectedValue: string | string[]): boolean {
+        // Special case: temporal conditions
+        if (key === 'is_workday') {
+            return this.matchesValue(isWorkday() ? 'true' : 'false', expectedValue);
+        }
+        if (key === 'is_work_hours') {
+            return this.matchesValue(isWorkHours() ? 'true' : 'false', expectedValue);
+        }
+        if (key === 'is_night') {
+            return this.matchesValue(isNight() ? 'true' : 'false', expectedValue);
+        }
+        if (key === 'is_morning') {
+            return this.matchesValue(isMorning() ? 'true' : 'false', expectedValue);
+        }
+        if (key === 'is_afternoon') {
+            return this.matchesValue(isAfternoon() ? 'true' : 'false', expectedValue);
+        }
+        if (key === 'is_evening') {
+            return this.matchesValue(isEvening() ? 'true' : 'false', expectedValue);
+        }
+        if (key === 'day') {
+            return this.matchesValue(getCurrentDay(), expectedValue);
+        }
+
         // Special case: "who" matches against person entity_id or name
         if (key === 'who') {
             return this.evaluateWho(expectedValue);

@@ -1,6 +1,49 @@
 import type { ActivityConditions, PersonConfig } from './types';
 
 /**
+ * Temporal condition helpers
+ */
+function getCurrentTime(): Date {
+    return new Date();
+}
+
+function isWorkday(): boolean {
+    const day = getCurrentTime().getDay(); // 0 = Sunday, 6 = Saturday
+    return day >= 1 && day <= 5; // Monday-Friday
+}
+
+function isWorkHours(): boolean {
+    if (!isWorkday()) return false;
+    const hour = getCurrentTime().getHours();
+    return hour >= 8 && hour < 16;
+}
+
+function isNight(): boolean {
+    const hour = getCurrentTime().getHours();
+    return hour >= 0 && hour < 6;
+}
+
+function isMorning(): boolean {
+    const hour = getCurrentTime().getHours();
+    return hour >= 6 && hour < 12;
+}
+
+function isAfternoon(): boolean {
+    const hour = getCurrentTime().getHours();
+    return hour >= 12 && hour < 18;
+}
+
+function isEvening(): boolean {
+    const hour = getCurrentTime().getHours();
+    return hour >= 18 && hour < 24;
+}
+
+function getCurrentDay(): string {
+    const days = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    return days[getCurrentTime().getDay()];
+}
+
+/**
  * Evaluates a set of conditions against a person's sensors
  * Returns true if all conditions match (AND logic)
  */
@@ -24,6 +67,29 @@ function matchCondition(
     key: string,
     expectedValue: string | string[]
 ): boolean {
+    // Special case: temporal conditions
+    if (key === 'is_workday') {
+        return matchesValue(isWorkday() ? 'true' : 'false', expectedValue);
+    }
+    if (key === 'is_work_hours') {
+        return matchesValue(isWorkHours() ? 'true' : 'false', expectedValue);
+    }
+    if (key === 'is_night') {
+        return matchesValue(isNight() ? 'true' : 'false', expectedValue);
+    }
+    if (key === 'is_morning') {
+        return matchesValue(isMorning() ? 'true' : 'false', expectedValue);
+    }
+    if (key === 'is_afternoon') {
+        return matchesValue(isAfternoon() ? 'true' : 'false', expectedValue);
+    }
+    if (key === 'is_evening') {
+        return matchesValue(isEvening() ? 'true' : 'false', expectedValue);
+    }
+    if (key === 'day') {
+        return matchesValue(getCurrentDay(), expectedValue);
+    }
+
     // Special case: "user" matches against current Home Assistant user
     if (key === 'user') {
         const expectedValues = Array.isArray(expectedValue) ? expectedValue : [expectedValue];

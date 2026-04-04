@@ -255,6 +255,13 @@ export class WhereaboutsCardEditor extends LitElement {
                 </div>
                 <datalist id="condition-key-suggestions-${idx}">
                   <option value="user">
+                  <option value="is_workday">
+                  <option value="is_work_hours">
+                  <option value="is_night">
+                  <option value="is_morning">
+                  <option value="is_afternoon">
+                  <option value="is_evening">
+                  <option value="day">
                   ${person.namedSensors ? Object.keys(person.namedSensors).map(sensorName => html`
                     <option value="${sensorName}">
                   `) : ''}
@@ -511,6 +518,13 @@ export class WhereaboutsCardEditor extends LitElement {
         <option value="who">
         <option value="where">
         <option value="user">
+        <option value="is_workday">
+        <option value="is_work_hours">
+        <option value="is_night">
+        <option value="is_morning">
+        <option value="is_afternoon">
+        <option value="is_evening">
+        <option value="day">
         ${this._config.persons.flatMap(person =>
           person.namedSensors ? Object.keys(person.namedSensors).map(sensorName => html`
             <option value="${sensorName}">
