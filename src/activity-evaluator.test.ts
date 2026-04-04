@@ -30,6 +30,7 @@ describe('ActivityEvaluator', () => {
         const activities: Activity[] = [{
             activity: 'is working',
             icon: 'mdi:briefcase',
+            show_preposition: false,
             conditions: { activity: 'working' }
         }];
         const evaluator = new ActivityEvaluator(hass, person, activities, []);
@@ -39,7 +40,7 @@ describe('ActivityEvaluator', () => {
             activity: 'is working',
             icon: 'mdi:briefcase',
             location_override: undefined,
-            show_preposition: undefined
+            show_preposition: false
         });
     });
 
