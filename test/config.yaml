@@ -23,11 +23,13 @@ default_preposition: at
 activities:
   - verb: "is working"
     location_override: "-"
+    icon: "mdi:briefcase"
     conditions:
       activity: "working"
       where: "work"
   - verb: "is gaming"
     show_preposition: true
+    icon: "mdi:gamepad"
     conditions:
       activity: "gaming"
       where: "home"
@@ -35,7 +37,9 @@ zone_groups:
   - name: "work"
     zones: ["zone.office", "zone.laboratory"]
     show_preposition: true
+    icon: "mdi:office-building"
   - name: "home"
     zones: ["zone.home"]
     preposition: "at"
     show_preposition: false
+    icon: "mdi:home"

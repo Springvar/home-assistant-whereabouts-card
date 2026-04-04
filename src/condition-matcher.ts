@@ -24,6 +24,28 @@ function matchCondition(
     key: string,
     expectedValue: string | string[]
 ): boolean {
+    // Special case: "user" matches against current Home Assistant user
+    if (key === 'user') {
+        const expectedValues = Array.isArray(expectedValue) ? expectedValue : [expectedValue];
+        const currentUser = hass.user;
+        if (!currentUser) return false;
+
+        return expectedValues.some(expected => {
+            if (expected === currentUser.id) return true;
+            if (expected === currentUser.name) return true;
+
+            const personEntity = hass.states[person.entity_id];
+            if (personEntity?.attributes?.user_id === currentUser.id) {
+                if (expected === person.entity_id ||
+                    expected === person.entity_id.replace('person.', '') ||
+                    expected === person.name) {
+                    return true;
+                }
+            }
+            return false;
+        });
+    }
+
     // Look up the sensor in the person's namedSensors
     const sensor = person.namedSensors?.[key];
     if (!sensor) {

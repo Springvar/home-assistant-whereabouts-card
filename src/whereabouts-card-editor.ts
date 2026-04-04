@@ -232,6 +232,15 @@ export class WhereaboutsCardEditor extends LitElement {
                   />
                 </div>
                 <div>
+                  <label>Icon (optional):</label>
+                  <input
+                    type="text"
+                    .value=${activity.icon || ''}
+                    @input=${(e: Event) => this._activityIconChanged(idx, e)}
+                    placeholder="e.g., mdi:gamepad"
+                  />
+                </div>
+                <div>
                   <label>
                     <input
                       type="checkbox"
@@ -288,6 +297,10 @@ export class WhereaboutsCardEditor extends LitElement {
                 Preposition:
                 <input type="text" .value=${group.preposition ?? ''} @input=${(e: Event) => this._zoneGroupPrepositionChanged(gidx, e)} placeholder="(optional, e.g., at)" />
               </label>
+              <label>
+                Icon:
+                <input type="text" .value=${group.icon ?? ''} @input=${(e: Event) => this._zoneGroupIconChanged(gidx, e)} placeholder="(optional, e.g., mdi:home)" />
+              </label>
               <div>
                 <label>Add zone:</label>
                 <select @change=${(e: Event) => this._addZoneToGroup(gidx, e)}>
@@ -319,6 +332,35 @@ export class WhereaboutsCardEditor extends LitElement {
             </fieldset>
           `)}
         </div>
+        </div>
+      </details>
+
+      <!-- TEMPLATE (Optional) -->
+      <details>
+        <summary><h3 style="display: inline;">Template (Optional)</h3></summary>
+        <div style="margin-left: 1em;">
+          <p style="font-size: 0.9em; color: #666; margin-bottom: 1em;">
+            Customize the display format. Available placeholders:
+            <strong>{name}</strong>, <strong>{verb}</strong>, <strong>{preposition}</strong>,
+            <strong>{location}</strong>, <strong>{icon}</strong>, <strong>{avatar}</strong>
+          </p>
+          <p style="font-size: 0.9em; color: #666; margin-bottom: 1em;">
+            Use <strong>{-placeholder}</strong> to omit preceding space if empty.
+            Use <strong>&lt;right ...&gt;</strong> to float content to the right.
+          </p>
+          <div>
+            <label>
+              Template:
+              <input type="text"
+                style="width: 100%; box-sizing: border-box; font-family: monospace;"
+                .value=${this._config.template || '{name} {verb} {-preposition} {-location} <right {icon}>'}
+                @input=${this._templateChanged}
+                placeholder="{name} {verb} {-preposition} {-location} <right {icon}>" />
+            </label>
+            <p style="font-size: 0.85em; color: #888; margin: 0.3em 0 0 0;">
+              Default: "{name} {verb} {-preposition} {-location} &lt;right {icon}&gt;"
+            </p>
+          </div>
         </div>
       </details>
 
@@ -417,6 +459,15 @@ export class WhereaboutsCardEditor extends LitElement {
     this._emitConfigChanged();
   }
 
+  _activityIconChanged(idx: number, e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    const activities = [...(this._config.activities ?? [])];
+    activities[idx] = { ...activities[idx], icon: value || undefined };
+    this._config = { ...this._config, activities };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
   _activityShowPrepositionChanged(idx: number, e: Event) {
     const checkbox = e.target as HTMLInputElement;
     const activities = [...(this._config.activities ?? [])];
@@ -498,6 +549,15 @@ export class WhereaboutsCardEditor extends LitElement {
     const value = (e.target as HTMLInputElement).value;
     const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
     groups[gidx] = { ...groups[gidx], preposition: value };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _zoneGroupIconChanged(gidx: number, e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    groups[gidx] = { ...groups[gidx], icon: value || undefined };
     this._config = { ...this._config, zone_groups: groups };
     this.requestUpdate();
     this._emitConfigChanged();
@@ -631,6 +691,13 @@ export class WhereaboutsCardEditor extends LitElement {
     }
 
     this._config = { ...this._config, persons };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _templateChanged(e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    this._config = { ...this._config, template: value };
     this.requestUpdate();
     this._emitConfigChanged();
   }

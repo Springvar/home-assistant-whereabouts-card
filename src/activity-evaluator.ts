@@ -5,6 +5,7 @@ export interface EvaluatedActivity {
     verb: string;
     location_override?: string;
     show_preposition?: boolean;
+    icon?: string;
 }
 
 export class ActivityEvaluator {
@@ -30,7 +31,8 @@ export class ActivityEvaluator {
                 return {
                     verb: activity.verb,
                     location_override: activity.location_override,
-                    show_preposition: activity.show_preposition
+                    show_preposition: activity.show_preposition,
+                    icon: activity.icon
                 };
             }
         }
@@ -59,6 +61,11 @@ export class ActivityEvaluator {
         // Special case: "where" matches against zones or zone groups
         if (key === 'where') {
             return this.evaluateWhere(expectedValue);
+        }
+
+        // Special case: "user" matches against current Home Assistant user
+        if (key === 'user') {
+            return this.evaluateUser(expectedValue);
         }
 
         // Look up the sensor in the person's namedSensors
@@ -150,6 +157,37 @@ export class ActivityEvaluator {
         }
 
         return false;
+    }
+
+    private evaluateUser(expectedValue: string | string[]): boolean {
+        const expectedValues = Array.isArray(expectedValue) ? expectedValue : [expectedValue];
+
+        // Get current user from hass
+        const currentUser = this.hass.user;
+        if (!currentUser) return false;
+
+        // Match against user ID, name, or person entity ID
+        return expectedValues.some(expected => {
+            // Match user ID
+            if (expected === currentUser.id) return true;
+
+            // Match user name
+            if (expected === currentUser.name) return true;
+
+            // Match person entity_id associated with user
+            // Check if the person entity has a user_id attribute matching current user
+            const personEntity = this.hass.states[this.person.entity_id];
+            if (personEntity?.attributes?.user_id === currentUser.id) {
+                // Match against person entity_id or name
+                if (expected === this.person.entity_id ||
+                    expected === this.person.entity_id.replace('person.', '') ||
+                    expected === this.person.name) {
+                    return true;
+                }
+            }
+
+            return false;
+        });
     }
 
     private matchesValue(actualValue: string, expectedValue: string | string[]): boolean {

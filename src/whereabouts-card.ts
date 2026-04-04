@@ -15,6 +15,7 @@ export interface ZoneGroup {
     zones: string[];
     preposition?: string;
     show_preposition?: boolean;
+    icon?: string;
 }
 
 export interface WhereaboutsCardConfig {
@@ -25,6 +26,7 @@ export interface WhereaboutsCardConfig {
     default_preposition?: string;
     activities?: Activity[];
     zone_groups?: ZoneGroup[];
+    template?: string; // Template for display (default: "{name} {verb} {-preposition} {-location} <right {icon}>")
 }
 
 class WhereaboutsCard extends LitElement {
@@ -48,6 +50,9 @@ class WhereaboutsCard extends LitElement {
 
     @property({ type: Array })
     declare zone_groups: ZoneGroup[];
+
+    @property({ type: String })
+    declare template: string;
 
     @property({ attribute: false })
     declare hass: any;
@@ -110,6 +115,7 @@ class WhereaboutsCard extends LitElement {
         this.default_preposition = config.default_preposition || 'in';
         this.activities = config.activities || [];
         this.zone_groups = (config.zone_groups || []).map((z) => ({ ...z, show_preposition: z.show_preposition !== false }));
+        this.template = config.template || '{name} {verb} {-preposition} {-location} <right {icon}>';
     }
 
     render() {
@@ -170,6 +176,7 @@ class WhereaboutsCard extends LitElement {
                         let usedPreposition = this.default_preposition;
                         let showPreposition = true;
                         let zoneNameOverride: string | undefined;
+                        let zoneGroupIcon: string | undefined;
 
                         // Check if zone is in any zone group (match by entity ID or friendly name)
                         if (Array.isArray(this.zone_groups)) {
@@ -178,6 +185,7 @@ class WhereaboutsCard extends LitElement {
                                     showPreposition = group.show_preposition !== false;
                                     if (group.preposition) usedPreposition = group.preposition;
                                     if (group.name) zoneNameOverride = group.name;
+                                    if (group.icon) zoneGroupIcon = group.icon;
                                     break;
                                 }
                             }
@@ -185,35 +193,41 @@ class WhereaboutsCard extends LitElement {
 
                         const zoneDisplay = zoneNameOverride ?? zoneFriendlyName;
 
-                        // Build the display text
-                        let displayText = '';
-                        if (evaluatedActivity) {
-                            // Activity detected - use activity verb and handle location override
-                            const locationOverride = evaluatedActivity.location_override;
+                        // Determine icon with precedence: Activity icon > Zone group icon > Zone icon
+                        const zoneDefaultIcon = zoneEntity?.attributes?.icon || 'mdi:map-marker';
+                        const displayIcon = evaluatedActivity?.icon || zoneGroupIcon || zoneDefaultIcon;
 
-                            // Activity can override zone group's show_preposition setting
-                            const effectiveShowPreposition = evaluatedActivity.show_preposition !== undefined
-                                ? evaluatedActivity.show_preposition
-                                : showPreposition;
-
-                            if (locationOverride === '-') {
-                                // Don't show location
-                                displayText = `${name} ${evaluatedActivity.verb}`;
-                            } else if (locationOverride) {
-                                // Use custom location override
-                                displayText = `${name} ${evaluatedActivity.verb} ${locationOverride}`;
-                            } else {
-                                // Show regular zone location
-                                displayText = `${name} ${evaluatedActivity.verb} ${effectiveShowPreposition ? usedPreposition + ' ' : ''}${zoneDisplay}`;
-                            }
-                        } else {
-                            // No activity - show default format
-                            displayText = `${name} ${this.default_verb} ${showPreposition ? usedPreposition + ' ' : ''}${zoneDisplay}`;
+                        // Determine location text
+                        let locationText = zoneDisplay;
+                        if (evaluatedActivity?.location_override === '-') {
+                            locationText = '';
+                        } else if (evaluatedActivity?.location_override) {
+                            locationText = evaluatedActivity.location_override;
                         }
+
+                        // Determine effective show_preposition
+                        const effectiveShowPreposition = evaluatedActivity?.show_preposition !== undefined
+                            ? evaluatedActivity.show_preposition
+                            : showPreposition;
+
+                        // Prepare template variables
+                        const templateVars = {
+                            name,
+                            verb: evaluatedActivity?.verb || this.default_verb,
+                            preposition: effectiveShowPreposition ? usedPreposition : '',
+                            location: locationText,
+                            icon: displayIcon,
+                            avatar: entity.attributes?.entity_picture || ''
+                        };
+
+                        // Render template
+                        const rendered = this.renderTemplate(this.template, templateVars);
 
                         return html`
                             <div class="person-container">
-                                <div class="person-location">${displayText}</div>
+                                <div class="person-location">
+                                    ${rendered}
+                                </div>
                                 ${calculatedActivity
                                     ? html`
                                           <div class="person-activity">
@@ -227,6 +241,96 @@ class WhereaboutsCard extends LitElement {
                     })}
                 </div>
             </ha-card>
+        `;
+    }
+
+    private renderTemplate(template: string, variables: { [key: string]: string }) {
+        // Handle {-placeholder} - replace with value or remove preceding space if empty
+        let processed = template.replace(/(\s*)\{-(\w+)\}/g, (match, space, key) => {
+            const value = variables[key] || '';
+            return value ? space + value : '';
+        });
+
+        // Extract <right ...> content if present
+        const rightMatch = processed.match(/<right\s+([^>]+)>/);
+        let leftContent = processed;
+        let rightContent = '';
+
+        if (rightMatch) {
+            leftContent = processed.substring(0, rightMatch.index);
+            rightContent = rightMatch[1];
+        }
+
+        // Function to render a string part with placeholder replacements
+        const renderPart = (part: string) => {
+            const rendered = [];
+            let current = part;
+
+            // Process the string, replacing {icon} and {avatar} with elements
+            while (current) {
+                // Find next special placeholder
+                const iconIndex = current.indexOf('{icon}');
+                const avatarIndex = current.indexOf('{avatar}');
+
+                // Determine which comes first
+                let nextIndex = -1;
+                let nextType: 'icon' | 'avatar' | null = null;
+
+                if (iconIndex !== -1 && (avatarIndex === -1 || iconIndex < avatarIndex)) {
+                    nextIndex = iconIndex;
+                    nextType = 'icon';
+                } else if (avatarIndex !== -1) {
+                    nextIndex = avatarIndex;
+                    nextType = 'avatar';
+                }
+
+                if (nextIndex === -1) {
+                    // No more special placeholders - replace regular placeholders and finish
+                    let textPart = current;
+                    for (const [key, value] of Object.entries(variables)) {
+                        if (key !== 'icon' && key !== 'avatar') {
+                            textPart = textPart.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+                        }
+                    }
+                    rendered.push(html`${textPart}`);
+                    break;
+                }
+
+                // Add text before the placeholder
+                let beforeText = current.substring(0, nextIndex);
+                for (const [key, value] of Object.entries(variables)) {
+                    if (key !== 'icon' && key !== 'avatar') {
+                        beforeText = beforeText.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+                    }
+                }
+                if (beforeText) {
+                    rendered.push(html`${beforeText}`);
+                }
+
+                // Add the special element
+                if (nextType === 'icon') {
+                    rendered.push(html`<ha-icon icon="${variables.icon}"></ha-icon>`);
+                    current = current.substring(nextIndex + 6); // length of '{icon}'
+                } else if (nextType === 'avatar') {
+                    if (variables.avatar) {
+                        rendered.push(html`<img src="${variables.avatar}" class="person-avatar" />`);
+                    }
+                    current = current.substring(nextIndex + 8); // length of '{avatar}'
+                }
+            }
+
+            return rendered;
+        };
+
+        if (!rightMatch) {
+            // No <right> directive
+            return renderPart(leftContent);
+        }
+
+        // Has <right> directive - render left and right parts
+        return html`
+            <span>${renderPart(leftContent)}</span>
+            <span style="margin-left: auto;">${renderPart(rightContent)}</span>
         `;
     }
 
@@ -246,7 +350,20 @@ class WhereaboutsCard extends LitElement {
             background: var(--card-background-color, #fff);
         }
         .person-location {
+            display: flex;
+            align-items: center;
+            gap: 8px;
             margin-bottom: 4px;
+        }
+        .person-location ha-icon {
+            --mdc-icon-size: 20px;
+            color: var(--primary-color);
+        }
+        .person-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
         }
         .person-activity {
             display: flex;

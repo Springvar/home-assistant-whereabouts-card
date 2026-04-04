@@ -50,6 +50,7 @@ export interface Activity {
     conditions: ActivityConditions;
     location_override?: string; // Optional location override, "-" = hide location
     show_preposition?: boolean; // Override zone group's show_preposition setting
+    icon?: string; // Optional icon override
 }
 
 export interface ActivityConditions {
