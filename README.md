@@ -195,8 +195,21 @@ conditions:
   discord.game: "Counter-Strike"   # Match sensor attribute (dot notation)
   steam.last_online: "!"           # Check if attribute is not falsy
   when: ["morning", "weekday"]     # Match multiple time periods (OR logic)
-  who: ["person.john", "John"]     # Special: match person
+  who: ["person.john", "John"]     # Special: match specific person
+  who: "user"                      # Special: match logged-in user only (for private messages)
   where: ["work", "zone.office"]   # Special: match zone or zone group
+  random: "50%"                    # Special: matches 50% of the time (for randomization)
+```
+
+**Example: "For Your Eyes Only" Status:**
+```yaml
+activities:
+  - activity: "is debugging a complex issue"
+    icon: "mdi:bug"
+    conditions:
+      who: "user"                  # Only show when viewing your own status
+      activity: "working"
+      stress_level: ">80"
 ```
 
 **Sensor State vs Attributes:**
@@ -218,7 +231,13 @@ conditions:
 ```
 
 **Special Condition Keys:**
+- `random`: Probability-based matching for randomization between similar activities. Value can be:
+  - Percentage: `"50%"`, `"75.5%"` (0-100%)
+  - Decimal: `"0.5"`, `"0.75"` (0-1)
+  - Example: `random: "50%"` matches 50% of the time
 - `who`: Matches against person entity ID, name, or entity ID without "person." prefix
+  - Special value `"user"`: Matches when the person being evaluated is the currently logged-in Home Assistant user (enables "for your eyes only" messages)
+  - Examples: `who: "user"`, `who: "person.john"`, `who: ["John", "Jane"]`
 - `where`: Matches against zone entity ID, zone name, zone friendly name, or zone group name
 - `user`: Matches against the current Home Assistant user (by user ID, user name, or associated person entity)
 

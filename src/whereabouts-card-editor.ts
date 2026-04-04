@@ -87,6 +87,119 @@ export class WhereaboutsCardEditor extends LitElement {
     return this.hass.states[entityId]?.attributes?.friendly_name || entityId;
   }
 
+  validateConditionValue(key: string, value: string | string[]): { valid: boolean; error?: string } {
+    const val = Array.isArray(value) ? value.join(', ') : value;
+
+    if (key === 'random') {
+      return this.validateRandomValue(val);
+    } else if (key === 'when') {
+      return this.validateWhenValue(val);
+    } else if (key === 'who') {
+      return this.validateWhoValue(val);
+    } else if (key === 'where') {
+      return this.validateWhereValue(val);
+    }
+
+    return { valid: true };
+  }
+
+  validateRandomValue(value: string): { valid: boolean; error?: string } {
+    if (!value.trim()) return { valid: false, error: 'Value required' };
+
+    const trimmed = value.trim();
+
+    // Check percentage format
+    if (trimmed.endsWith('%')) {
+      const num = parseFloat(trimmed.slice(0, -1));
+      if (isNaN(num) || num < 0 || num > 100) {
+        return { valid: false, error: 'Must be 0-100%' };
+      }
+      return { valid: true };
+    }
+
+    // Check decimal format
+    const num = parseFloat(trimmed);
+    if (isNaN(num) || num < 0 || num > 1) {
+      return { valid: false, error: 'Must be 0-100% or 0-1' };
+    }
+    return { valid: true };
+  }
+
+  validateWhenValue(value: string): { valid: boolean; error?: string } {
+    if (!value.trim()) return { valid: false, error: 'Value required' };
+
+    const validPeriods = ['night', 'morning', 'afternoon', 'evening', 'weekday', 'weekend', 'schoolday', 'afterschool'];
+
+    // Split by comma or "OR" (case insensitive)
+    const periods = value.split(/,|\bor\b/i).map(p => p.trim().toLowerCase()).filter(p => p);
+
+    if (periods.length === 0) {
+      return { valid: false, error: 'At least one time period required' };
+    }
+
+    const invalidPeriods = periods.filter(p => !validPeriods.includes(p));
+    if (invalidPeriods.length > 0) {
+      return { valid: false, error: `Invalid: ${invalidPeriods.join(', ')}` };
+    }
+
+    return { valid: true };
+  }
+
+  validateWhoValue(value: string): { valid: boolean; error?: string } {
+    if (!value.trim()) return { valid: false, error: 'Value required' };
+    if (!this.hass) return { valid: true }; // Can't validate without hass
+
+    // Split by comma
+    const values = value.split(',').map(v => v.trim()).filter(v => v);
+
+    for (const val of values) {
+      // Special case: "user" is always valid
+      if (val.toLowerCase() === 'user') continue;
+
+      // Check if it's a valid person entity
+      const entityId = val.startsWith('person.') ? val : `person.${val}`;
+      const isValidEntity = !!this.hass.states[entityId];
+
+      // Check if it matches a person's custom name
+      const matchesName = this._config.persons.some(p =>
+        p.name?.toLowerCase() === val.toLowerCase() ||
+        p.entity_id === val ||
+        p.entity_id === entityId
+      );
+
+      if (!isValidEntity && !matchesName) {
+        return { valid: false, error: `Unknown person: ${val}` };
+      }
+    }
+
+    return { valid: true };
+  }
+
+  validateWhereValue(value: string): { valid: boolean; error?: string } {
+    if (!value.trim()) return { valid: false, error: 'Value required' };
+    if (!this.hass) return { valid: true }; // Can't validate without hass
+
+    // Split by comma
+    const values = value.split(',').map(v => v.trim()).filter(v => v);
+
+    for (const val of values) {
+      // Check if it's a valid zone
+      const zoneId = val.startsWith('zone.') ? val : (val === 'home' ? 'home' : `zone.${val}`);
+      const isValidZone = zoneId === 'home' || !!this.hass.states[zoneId];
+
+      // Check if it matches a zone group name
+      const matchesZoneGroup = (this._config.zone_groups ?? []).some(g =>
+        g.name?.toLowerCase() === val.toLowerCase()
+      );
+
+      if (!isValidZone && !matchesZoneGroup) {
+        return { valid: false, error: `Unknown zone: ${val}` };
+      }
+    }
+
+    return { valid: true };
+  }
+
   setConfig(config: WhereaboutsCardConfig) {
     this._config = { ...config };
     this._config.zone_groups = (this._config.zone_groups || []).map((zg) => ({
@@ -278,7 +391,9 @@ export class WhereaboutsCardEditor extends LitElement {
                 </p>
                 <div>
                   ${person.hideIf && Object.keys(person.hideIf).length > 0
-                    ? Object.entries(person.hideIf).map(([key, value]) => html`
+                    ? Object.entries(person.hideIf).map(([key, value]) => {
+                      const validation = this.validateConditionValue(key, value);
+                      return html`
                       <div style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
                         <input
                           type="text"
@@ -288,21 +403,30 @@ export class WhereaboutsCardEditor extends LitElement {
                           style="width: 120px;"
                           @blur=${(e: Event) => this._updateHideIfConditionKey(idx, key, (e.target as HTMLInputElement).value)}
                         />
-                        <input
-                          type="text"
-                          value="${Array.isArray(value) ? value.join(', ') : value}"
-                          placeholder="value (comma-separated for multiple)"
-                          style="flex: 1;"
-                          @blur=${(e: Event) => this._updateHideIfConditionValue(idx, key, (e.target as HTMLInputElement).value)}
-                        />
+                        <div style="flex: 1; position: relative;">
+                          <input
+                            type="text"
+                            value="${Array.isArray(value) ? value.join(', ') : value}"
+                            placeholder="value (comma-separated for multiple)"
+                            style="width: 100%; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+                            @blur=${(e: Event) => this._updateHideIfConditionValue(idx, key, (e.target as HTMLInputElement).value)}
+                          />
+                          ${!validation.valid ? html`
+                            <span style="color: #ff9800; margin-left: 0.5em; font-size: 0.85em;" title="${validation.error}">⚠️ ${validation.error}</span>
+                          ` : ''}
+                        </div>
                         <button class="icon-button" @click=${() => this._removeHideIfCondition(idx, key)} title="Remove">🗑️</button>
                       </div>
-                    `)
+                    `;
+                    })
                     : ''}
                 </div>
                 <datalist id="condition-key-suggestions-${idx}">
+                  <option value="random">
                   <option value="user">
                   <option value="when">
+                  <option value="who">
+                  <option value="where">
                   <option value="is_workday">
                   <option value="is_work_hours">
                   <option value="is_night">
@@ -387,10 +511,12 @@ export class WhereaboutsCardEditor extends LitElement {
                 <div>
                   <strong>Conditions</strong>
                   <p style="font-size: 0.9em; color: #666; margin-top: 0.25em;">
-                    All conditions must match for this activity to apply. Use "who", "where", or "user" for special matching.
+                    All conditions must match for this activity to apply. Special keys: "random" (0-100% or 0-1), "who" (person), "where" (zone/group), "when" (time period), "user" (HA user).
                   </p>
                   <div>
-                    ${Object.entries(activity.conditions || {}).map(([key, value]) => html`
+                    ${Object.entries(activity.conditions || {}).map(([key, value]) => {
+                      const validation = this.validateConditionValue(key, value);
+                      return html`
                       <div style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
                         <input
                           type="text"
@@ -400,16 +526,22 @@ export class WhereaboutsCardEditor extends LitElement {
                           style="width: 120px;"
                           @blur=${(e: Event) => this._updateActivityConditionKey(idx, key, (e.target as HTMLInputElement).value)}
                         />
-                        <input
-                          type="text"
-                          value="${Array.isArray(value) ? value.join(', ') : value}"
-                          placeholder="value (comma-separated for multiple)"
-                          style="flex: 1;"
-                          @blur=${(e: Event) => this._updateActivityConditionValue(idx, key, (e.target as HTMLInputElement).value)}
-                        />
+                        <div style="flex: 1; position: relative;">
+                          <input
+                            type="text"
+                            value="${Array.isArray(value) ? value.join(', ') : value}"
+                            placeholder="value (comma-separated for multiple)"
+                            style="width: 100%; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+                            @blur=${(e: Event) => this._updateActivityConditionValue(idx, key, (e.target as HTMLInputElement).value)}
+                          />
+                          ${!validation.valid ? html`
+                            <span style="color: #ff9800; margin-left: 0.5em; font-size: 0.85em;" title="${validation.error}">⚠️ ${validation.error}</span>
+                          ` : ''}
+                        </div>
                         <button class="icon-button" @click=${() => this._removeActivityCondition(idx, key)} title="Remove">🗑️</button>
                       </div>
-                    `)}
+                    `;
+                    })}
                   </div>
                   <button @click=${() => this._addActivityCondition(idx)} style="margin-top: 0.5em;">+ Add Condition</button>
                 </div>
@@ -589,6 +721,7 @@ export class WhereaboutsCardEditor extends LitElement {
       </datalist>
 
       <datalist id="activity-condition-suggestions">
+        <option value="random">
         <option value="who">
         <option value="where">
         <option value="user">

@@ -51,6 +51,29 @@ function getNestedAttribute(obj: any, path: string): any {
 }
 
 /**
+ * Parse random condition value (percentage or decimal)
+ * Returns probability as decimal (0-1) or null if invalid
+ */
+function parseRandomValue(value: string | string[]): number | null {
+    const val = Array.isArray(value) ? value[0] : value;
+    if (!val) return null;
+
+    const trimmed = String(val).trim();
+
+    // Handle percentage format (e.g., "50%", "75.5%")
+    if (trimmed.endsWith('%')) {
+        const num = parseFloat(trimmed.slice(0, -1));
+        if (isNaN(num) || num < 0 || num > 100) return null;
+        return num / 100;
+    }
+
+    // Handle decimal format (e.g., "0.5", "0.75")
+    const num = parseFloat(trimmed);
+    if (isNaN(num) || num < 0 || num > 1) return null;
+    return num;
+}
+
+/**
  * Check if current time matches a "when" period (night, morning, weekday, etc.)
  */
 function matchesWhenPeriod(period: string): boolean {
@@ -104,6 +127,13 @@ function matchCondition(
     key: string,
     expectedValue: string | string[]
 ): boolean {
+    // Special case: "random" - probability check
+    if (key === 'random') {
+        const probability = parseRandomValue(expectedValue);
+        if (probability === null) return false;
+        return Math.random() < probability;
+    }
+
     // Special case: "when" matches array of time periods (OR logic)
     if (key === 'when') {
         const periods = Array.isArray(expectedValue) ? expectedValue : [expectedValue];
@@ -131,6 +161,32 @@ function matchCondition(
     }
     if (key === 'day') {
         return matchesValue(getCurrentDay(), expectedValue);
+    }
+
+    // Special case: "who" matches against person being evaluated
+    if (key === 'who') {
+        const expectedValues = Array.isArray(expectedValue) ? expectedValue : [expectedValue];
+        const currentUser = hass.user;
+        const personEntity = hass.states[person.entity_id];
+
+        return expectedValues.some(expected => {
+            // Special case: "user" matches if this person is the logged-in user
+            if (expected === 'user') {
+                if (!currentUser || !personEntity) return false;
+                return personEntity.attributes?.user_id === currentUser.id;
+            }
+
+            // Match person entity ID
+            if (expected === person.entity_id) return true;
+            // Match person entity ID without prefix
+            if (expected === person.entity_id.replace('person.', '')) return true;
+            // Match custom person name
+            if (person.name && expected === person.name) return true;
+            // Match entity friendly name
+            if (personEntity?.attributes?.friendly_name === expected) return true;
+
+            return false;
+        });
     }
 
     // Special case: "user" matches against current Home Assistant user
