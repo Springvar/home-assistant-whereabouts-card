@@ -322,6 +322,7 @@ export class WhereaboutsCardEditor extends LitElement {
                   <label>
                     <input
                       type="checkbox"
+                      class="tristate-checkbox"
                       .checked=${activity.show_preposition === true}
                       .indeterminate=${activity.show_preposition === undefined}
                       @change=${(e: Event) => this._activityShowPrepositionChanged(idx, e)}
@@ -600,7 +601,7 @@ export class WhereaboutsCardEditor extends LitElement {
   }
 
   _addActivity() {
-    const activities = [...(this._config.activities ?? []), { activity: '', conditions: {} }];
+    const activities = [...(this._config.activities ?? []), { activity: '', conditions: {}, show_preposition: false }];
     this._config = { ...this._config, activities };
     this.requestUpdate();
     this._emitConfigChanged();
@@ -1057,6 +1058,70 @@ export class WhereaboutsCardEditor extends LitElement {
     }
     .icon-button:hover {
       background: #f0f0f0;
+    }
+
+    /* Tristate checkbox styling */
+    .tristate-checkbox {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid #ccc;
+      border-radius: 3px;
+      cursor: pointer;
+      position: relative;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+
+    /* Indeterminate state (undefined) - gray dash */
+    .tristate-checkbox:indeterminate {
+      background-color: #888;
+      border-color: #888;
+    }
+    .tristate-checkbox:indeterminate::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 10px;
+      height: 2px;
+      background-color: white;
+    }
+
+    /* Checked state (true) - blue checkmark */
+    .tristate-checkbox:checked {
+      background-color: var(--primary-color, #0984e3);
+      border-color: var(--primary-color, #0984e3);
+    }
+    .tristate-checkbox:checked::after {
+      content: '✓';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      line-height: 1;
+    }
+
+    /* Unchecked state (false) - red X */
+    .tristate-checkbox:not(:checked):not(:indeterminate) {
+      background-color: #d63031;
+      border-color: #d63031;
+    }
+    .tristate-checkbox:not(:checked):not(:indeterminate)::after {
+      content: '✕';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 14px;
+      font-weight: bold;
+      line-height: 1;
     }
   `;
 }
