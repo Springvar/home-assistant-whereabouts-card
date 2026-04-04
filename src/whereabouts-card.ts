@@ -22,6 +22,7 @@ export interface WhereaboutsCardConfig {
     persons: PersonConfig[];
     show_title?: boolean;
     title?: string;
+    show_avatars?: boolean;
     default_verb?: string;
     default_preposition?: string;
     activities?: Activity[];
@@ -38,6 +39,9 @@ class WhereaboutsCard extends LitElement {
 
     @property({ type: String })
     declare title: string;
+
+    @property({ type: Boolean })
+    declare show_avatars: boolean;
 
     @property({ type: String })
     declare default_verb: string;
@@ -102,6 +106,7 @@ class WhereaboutsCard extends LitElement {
         if (!this.persons) this.persons = [];
         if (this.show_title === undefined) this.show_title = true;
         if (!this.title) this.title = 'Whereabouts';
+        if (this.show_avatars === undefined) this.show_avatars = false;
         if (!this.default_verb) this.default_verb = 'is';
         if (!this.default_preposition) this.default_preposition = 'in';
         if (!this.activities) this.activities = [];
@@ -111,6 +116,7 @@ class WhereaboutsCard extends LitElement {
         this.persons = config.persons || [];
         this.show_title = config.show_title !== undefined ? config.show_title : true;
         this.title = config.title || 'Whereabouts';
+        this.show_avatars = config.show_avatars !== undefined ? config.show_avatars : false;
         this.default_verb = config.default_verb || 'is';
         this.default_preposition = config.default_preposition || 'in';
         this.activities = config.activities || [];
@@ -216,26 +222,34 @@ class WhereaboutsCard extends LitElement {
                             verb: evaluatedActivity?.verb || this.default_verb,
                             preposition: effectiveShowPreposition ? usedPreposition : '',
                             location: locationText,
-                            icon: displayIcon,
-                            avatar: entity.attributes?.entity_picture || ''
+                            icon: displayIcon
                         };
 
                         // Render template
                         const rendered = this.renderTemplate(this.template, templateVars);
 
+                        const avatarUrl = entity.attributes?.entity_picture || '';
+
                         return html`
                             <div class="person-container">
-                                <div class="person-location">
-                                    ${rendered}
+                                ${this.show_avatars && avatarUrl ? html`
+                                    <div class="person-avatar-column">
+                                        <img src="${avatarUrl}" class="person-avatar" />
+                                    </div>
+                                ` : ''}
+                                <div class="person-content">
+                                    <div class="person-location">
+                                        ${rendered}
+                                    </div>
+                                    ${calculatedActivity
+                                        ? html`
+                                              <div class="person-activity">
+                                                  <ha-icon icon="${calculatedActivity.icon}"></ha-icon>
+                                                  <span>${calculatedActivity.text}</span>
+                                              </div>
+                                          `
+                                        : ''}
                                 </div>
-                                ${calculatedActivity
-                                    ? html`
-                                          <div class="person-activity">
-                                              <ha-icon icon="${calculatedActivity.icon}"></ha-icon>
-                                              <span>${calculatedActivity.text}</span>
-                                          </div>
-                                      `
-                                    : ''}
                             </div>
                         `;
                     })}
@@ -266,29 +280,15 @@ class WhereaboutsCard extends LitElement {
             const rendered = [];
             let current = part;
 
-            // Process the string, replacing {icon} and {avatar} with elements
+            // Process the string, replacing {icon} with elements
             while (current) {
-                // Find next special placeholder
                 const iconIndex = current.indexOf('{icon}');
-                const avatarIndex = current.indexOf('{avatar}');
 
-                // Determine which comes first
-                let nextIndex = -1;
-                let nextType: 'icon' | 'avatar' | null = null;
-
-                if (iconIndex !== -1 && (avatarIndex === -1 || iconIndex < avatarIndex)) {
-                    nextIndex = iconIndex;
-                    nextType = 'icon';
-                } else if (avatarIndex !== -1) {
-                    nextIndex = avatarIndex;
-                    nextType = 'avatar';
-                }
-
-                if (nextIndex === -1) {
-                    // No more special placeholders - replace regular placeholders and finish
+                if (iconIndex === -1) {
+                    // No more {icon} placeholders - replace regular placeholders and finish
                     let textPart = current;
                     for (const [key, value] of Object.entries(variables)) {
-                        if (key !== 'icon' && key !== 'avatar') {
+                        if (key !== 'icon') {
                             textPart = textPart.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
                         }
                     }
@@ -296,10 +296,10 @@ class WhereaboutsCard extends LitElement {
                     break;
                 }
 
-                // Add text before the placeholder
-                let beforeText = current.substring(0, nextIndex);
+                // Add text before the {icon} placeholder
+                let beforeText = current.substring(0, iconIndex);
                 for (const [key, value] of Object.entries(variables)) {
-                    if (key !== 'icon' && key !== 'avatar') {
+                    if (key !== 'icon') {
                         beforeText = beforeText.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
                     }
                 }
@@ -307,16 +307,9 @@ class WhereaboutsCard extends LitElement {
                     rendered.push(html`${beforeText}`);
                 }
 
-                // Add the special element
-                if (nextType === 'icon') {
-                    rendered.push(html`<ha-icon icon="${variables.icon}"></ha-icon>`);
-                    current = current.substring(nextIndex + 6); // length of '{icon}'
-                } else if (nextType === 'avatar') {
-                    if (variables.avatar) {
-                        rendered.push(html`<img src="${variables.avatar}" class="person-avatar" />`);
-                    }
-                    current = current.substring(nextIndex + 8); // length of '{avatar}'
-                }
+                // Add the icon element
+                rendered.push(html`<ha-icon icon="${variables.icon}"></ha-icon>`);
+                current = current.substring(iconIndex + 6); // length of '{icon}'
             }
 
             return rendered;
@@ -348,6 +341,22 @@ class WhereaboutsCard extends LitElement {
             padding: 8px;
             border-left: 3px solid var(--primary-color);
             background: var(--card-background-color, #fff);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .person-avatar-column {
+            flex-shrink: 0;
+        }
+        .person-avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .person-content {
+            flex: 1;
+            min-width: 0;
         }
         .person-location {
             display: flex;
@@ -358,12 +367,6 @@ class WhereaboutsCard extends LitElement {
         .person-location ha-icon {
             --mdc-icon-size: 20px;
             color: var(--primary-color);
-        }
-        .person-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            object-fit: cover;
         }
         .person-activity {
             display: flex;

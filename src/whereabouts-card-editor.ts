@@ -6,7 +6,6 @@ import type { PersonSensors } from './types';
 export class WhereaboutsCardEditor extends LitElement {
   @property({ attribute: false }) public hass: any;
   @state() private _config: WhereaboutsCardConfig = { persons: [], zone_groups: [] };
-  @state() private _addingSensor: Map<number, { name: string; entity_id: string }> = new Map();
 
   get availablePersons(): string[] {
     if (!this.hass) return [];
@@ -71,6 +70,16 @@ export class WhereaboutsCardEditor extends LitElement {
         />
       </div>
       <div>
+        <label>
+          <input
+            type="checkbox"
+            .checked=${this._config.show_avatars === true}
+            @change=${this._toggleShowAvatars}
+          />
+          Show avatars
+        </label>
+      </div>
+      <div>
         <label>Default verb:</label>
         <input
           type="text"
@@ -127,53 +136,34 @@ export class WhereaboutsCardEditor extends LitElement {
                 </p>
 
                 <div class="sensor-list">
-                  <!-- Existing sensors -->
                   ${person.namedSensors && Object.keys(person.namedSensors).length > 0
                     ? Object.entries(person.namedSensors).map(([name, sensor]) => html`
                         <div class="sensor-row">
-                          <input type="text" value="${name}" disabled style="width: 150px;" />
-                          <input type="text" value="${Array.isArray(sensor.entity_id) ? sensor.entity_id.join(', ') : sensor.entity_id}" disabled style="flex: 1;" />
+                          <input
+                            type="text"
+                            value="${name}"
+                            placeholder="name"
+                            style="width: 150px;"
+                            @blur=${(e: Event) => this._updateNamedSensorName(idx, name, (e.target as HTMLInputElement).value)}
+                          />
+                          <input
+                            type="text"
+                            value="${Array.isArray(sensor.entity_id) ? sensor.entity_id.join(', ') : sensor.entity_id}"
+                            placeholder="entity_id (comma for multiple)"
+                            list="entity-suggestions"
+                            style="flex: 1;"
+                            @blur=${(e: Event) => this._updateNamedSensorEntity(idx, name, (e.target as HTMLInputElement).value)}
+                          />
                           <button class="icon-button" @click=${() => this._removeNamedSensor(idx, name)} title="Remove">🗑️</button>
                         </div>
                       `)
                     : ''}
-
-                  <!-- Adding new sensor row -->
-                  ${this._addingSensor.has(idx) ? html`
-                    <div class="sensor-row">
-                      <input
-                        type="text"
-                        placeholder="name"
-                        style="width: 150px;"
-                        .value=${this._addingSensor.get(idx)!.name}
-                        @input=${(e: Event) => this._updateAddingSensor(idx, 'name', (e.target as HTMLInputElement).value)}
-                      />
-                      <input
-                        type="text"
-                        placeholder="entity_id (comma for multiple)"
-                        style="flex: 1;"
-                        .value=${this._addingSensor.get(idx)!.entity_id}
-                        @input=${(e: Event) => this._updateAddingSensor(idx, 'entity_id', (e.target as HTMLInputElement).value)}
-                      />
-                      <button
-                        class="icon-button"
-                        @click=${() => this._cancelAddingSensor(idx)}
-                        title="Cancel"
-                      >🗑️</button>
-                    </div>
-                    <div style="margin-top: 0.5em;">
-                      <button @click=${() => this._saveAddingSensor(idx)}>Save Sensor</button>
-                    </div>
-                  ` : ''}
                 </div>
 
-                <!-- Add sensor button -->
-                ${!this._addingSensor.has(idx) ? html`
-                  <button
-                    @click=${() => this._startAddingSensor(idx)}
-                    style="margin-top: 0.5em;"
-                  >+ Add Sensor</button>
-                ` : ''}
+                <button
+                  @click=${() => this._addNamedSensor(idx)}
+                  style="margin-top: 0.5em;"
+                >+ Add Sensor</button>
               </div>
 
               <!-- Hide If Conditions -->
@@ -186,13 +176,32 @@ export class WhereaboutsCardEditor extends LitElement {
                   ${person.hideIf && Object.keys(person.hideIf).length > 0
                     ? Object.entries(person.hideIf).map(([key, value]) => html`
                       <div style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
-                        <input type="text" value="${key}" disabled style="width: 120px;" />
-                        <input type="text" value="${Array.isArray(value) ? value.join(', ') : value}" disabled style="flex: 1;" />
+                        <input
+                          type="text"
+                          value="${key}"
+                          placeholder="condition key"
+                          list="condition-key-suggestions-${idx}"
+                          style="width: 120px;"
+                          @blur=${(e: Event) => this._updateHideIfConditionKey(idx, key, (e.target as HTMLInputElement).value)}
+                        />
+                        <input
+                          type="text"
+                          value="${Array.isArray(value) ? value.join(', ') : value}"
+                          placeholder="value (comma-separated for multiple)"
+                          style="flex: 1;"
+                          @blur=${(e: Event) => this._updateHideIfConditionValue(idx, key, (e.target as HTMLInputElement).value)}
+                        />
                         <button class="icon-button" @click=${() => this._removeHideIfCondition(idx, key)} title="Remove">🗑️</button>
                       </div>
                     `)
                     : ''}
                 </div>
+                <datalist id="condition-key-suggestions-${idx}">
+                  <option value="user">
+                  ${person.namedSensors ? Object.keys(person.namedSensors).map(sensorName => html`
+                    <option value="${sensorName}">
+                  `) : ''}
+                </datalist>
                 <button @click=${() => this._addHideIfCondition(idx)} style="margin-top: 0.5em;">+ Add Condition</button>
               </div>
             </fieldset>
@@ -220,6 +229,8 @@ export class WhereaboutsCardEditor extends LitElement {
                     @input=${(e: Event) => this._activityVerbChanged(idx, e)}
                     placeholder="Activity verb (e.g., is gaming)"
                   />
+                  ${idx > 0 ? html`<button @click=${() => this._moveActivityUp(idx)} title="Move Up">↑</button>` : ''}
+                  ${idx < (this._config.activities?.length ?? 0) - 1 ? html`<button @click=${() => this._moveActivityDown(idx)} title="Move Down">↓</button>` : ''}
                   <button @click=${() => this._removeActivity(idx)}>Remove</button>
                 </legend>
                 <div>
@@ -238,6 +249,7 @@ export class WhereaboutsCardEditor extends LitElement {
                     .value=${activity.icon || ''}
                     @input=${(e: Event) => this._activityIconChanged(idx, e)}
                     placeholder="e.g., mdi:gamepad"
+                    list="icon-suggestions"
                   />
                 </div>
                 <div>
@@ -254,13 +266,26 @@ export class WhereaboutsCardEditor extends LitElement {
                 <div>
                   <strong>Conditions</strong>
                   <p style="font-size: 0.9em; color: #666; margin-top: 0.25em;">
-                    All conditions must match for this activity to apply. Use "who" to target a specific person, "where" to match zones or zone groups.
+                    All conditions must match for this activity to apply. Use "who", "where", or "user" for special matching.
                   </p>
                   <div>
                     ${Object.entries(activity.conditions || {}).map(([key, value]) => html`
                       <div style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
-                        <input type="text" value="${key}" disabled style="width: 120px;" />
-                        <input type="text" value="${Array.isArray(value) ? value.join(', ') : value}" disabled style="flex: 1;" />
+                        <input
+                          type="text"
+                          value="${key}"
+                          placeholder="condition key"
+                          list="activity-condition-suggestions"
+                          style="width: 120px;"
+                          @blur=${(e: Event) => this._updateActivityConditionKey(idx, key, (e.target as HTMLInputElement).value)}
+                        />
+                        <input
+                          type="text"
+                          value="${Array.isArray(value) ? value.join(', ') : value}"
+                          placeholder="value (comma-separated for multiple)"
+                          style="flex: 1;"
+                          @blur=${(e: Event) => this._updateActivityConditionValue(idx, key, (e.target as HTMLInputElement).value)}
+                        />
                         <button class="icon-button" @click=${() => this._removeActivityCondition(idx, key)} title="Remove">🗑️</button>
                       </div>
                     `)}
@@ -299,7 +324,7 @@ export class WhereaboutsCardEditor extends LitElement {
               </label>
               <label>
                 Icon:
-                <input type="text" .value=${group.icon ?? ''} @input=${(e: Event) => this._zoneGroupIconChanged(gidx, e)} placeholder="(optional, e.g., mdi:home)" />
+                <input type="text" .value=${group.icon ?? ''} @input=${(e: Event) => this._zoneGroupIconChanged(gidx, e)} placeholder="(optional, e.g., mdi:home)" list="icon-suggestions" />
               </label>
               <div>
                 <label>Add zone:</label>
@@ -342,7 +367,7 @@ export class WhereaboutsCardEditor extends LitElement {
           <p style="font-size: 0.9em; color: #666; margin-bottom: 1em;">
             Customize the display format. Available placeholders:
             <strong>{name}</strong>, <strong>{verb}</strong>, <strong>{preposition}</strong>,
-            <strong>{location}</strong>, <strong>{icon}</strong>, <strong>{avatar}</strong>
+            <strong>{location}</strong>, <strong>{icon}</strong>
           </p>
           <p style="font-size: 0.9em; color: #666; margin-bottom: 1em;">
             Use <strong>{-placeholder}</strong> to omit preceding space if empty.
@@ -366,12 +391,61 @@ export class WhereaboutsCardEditor extends LitElement {
 
         </div>
       </div>
+
+      <!-- Global datalists for autocomplete -->
+      <datalist id="entity-suggestions">
+        ${Object.keys(this.hass?.states || {}).map(entityId => html`
+          <option value="${entityId}">${this.hass.states[entityId]?.attributes?.friendly_name || entityId}</option>
+        `)}
+      </datalist>
+
+      <datalist id="icon-suggestions">
+        <option value="mdi:account">
+        <option value="mdi:home">
+        <option value="mdi:office-building">
+        <option value="mdi:briefcase">
+        <option value="mdi:gamepad">
+        <option value="mdi:power-sleep">
+        <option value="mdi:bike">
+        <option value="mdi:car">
+        <option value="mdi:walk">
+        <option value="mdi:run">
+        <option value="mdi:map-marker">
+        <option value="mdi:school">
+        <option value="mdi:shopping">
+        <option value="mdi:hospital">
+        <option value="mdi:food">
+        <option value="mdi:coffee">
+        <option value="mdi:dumbbell">
+        <option value="mdi:airplane">
+        <option value="mdi:phone">
+        <option value="mdi:laptop">
+        <option value="mdi:television">
+      </datalist>
+
+      <datalist id="activity-condition-suggestions">
+        <option value="who">
+        <option value="where">
+        <option value="user">
+        ${this._config.persons.flatMap(person =>
+          person.namedSensors ? Object.keys(person.namedSensors).map(sensorName => html`
+            <option value="${sensorName}">
+          `) : []
+        )}
+      </datalist>
   `;
 }
 
   _toggleShowTitle(e: Event) {
     const checked = (e.target as HTMLInputElement).checked;
     this._config = { ...this._config, show_title: checked };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _toggleShowAvatars(e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
+    this._config = { ...this._config, show_avatars: checked };
     this.requestUpdate();
     this._emitConfigChanged();
   }
@@ -441,6 +515,26 @@ export class WhereaboutsCardEditor extends LitElement {
     this._emitConfigChanged();
   }
 
+  _moveActivityUp(idx: number) {
+    if (idx === 0) return;
+    const activities = [...(this._config.activities ?? [])];
+    // Swap with previous
+    [activities[idx - 1], activities[idx]] = [activities[idx], activities[idx - 1]];
+    this._config = { ...this._config, activities };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _moveActivityDown(idx: number) {
+    const activities = [...(this._config.activities ?? [])];
+    if (idx >= activities.length - 1) return;
+    // Swap with next
+    [activities[idx], activities[idx + 1]] = [activities[idx + 1], activities[idx]];
+    this._config = { ...this._config, activities };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
   _activityVerbChanged(idx: number, e: Event) {
     const value = (e.target as HTMLInputElement).value;
     const activities = [...(this._config.activities ?? [])];
@@ -491,22 +585,56 @@ export class WhereaboutsCardEditor extends LitElement {
   }
 
   _addActivityCondition(idx: number) {
-    const key = prompt('Enter condition key (sensor name, "who", or "where"):');
-    if (!key || !key.trim()) return;
-
-    const valueStr = prompt('Enter value(s) - comma-separated for multiple, use operators like >5, <=10, <>off:');
-    if (valueStr === null) return;
-
     const activities = [...(this._config.activities ?? [])];
     const conditions = { ...(activities[idx].conditions || {}) };
+
+    // Find a unique key like "condition1", "condition2", etc.
+    let counter = 1;
+    while (conditions[`condition${counter}`]) {
+      counter++;
+    }
+
+    conditions[`condition${counter}`] = '';
+    activities[idx] = { ...activities[idx], conditions };
+    this._config = { ...this._config, activities };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _updateActivityConditionKey(activityIdx: number, oldKey: string, newKey: string) {
+    if (!newKey.trim() || newKey === oldKey) return;
+
+    const activities = [...(this._config.activities ?? [])];
+    const conditions = { ...(activities[activityIdx].conditions || {}) };
+
+    // Check if new key already exists
+    if (conditions[newKey.trim()] && newKey.trim() !== oldKey) {
+      alert('A condition with this key already exists');
+      return;
+    }
+
+    // Move condition to new key
+    const value = conditions[oldKey];
+    delete conditions[oldKey];
+    conditions[newKey.trim()] = value;
+
+    activities[activityIdx] = { ...activities[activityIdx], conditions };
+    this._config = { ...this._config, activities };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _updateActivityConditionValue(activityIdx: number, key: string, valueStr: string) {
+    const activities = [...(this._config.activities ?? [])];
+    const conditions = { ...(activities[activityIdx].conditions || {}) };
 
     // Parse value - check if comma-separated
     const value = valueStr.includes(',')
       ? valueStr.split(',').map(v => v.trim()).filter(v => v)
       : valueStr.trim();
 
-    conditions[key.trim()] = value;
-    activities[idx] = { ...activities[idx], conditions };
+    conditions[key] = value;
+    activities[activityIdx] = { ...activities[activityIdx], conditions };
     this._config = { ...this._config, activities };
     this.requestUpdate();
     this._emitConfigChanged();
@@ -597,53 +725,60 @@ export class WhereaboutsCardEditor extends LitElement {
     this._emitConfigChanged();
   }
 
-  _startAddingSensor(personIdx: number) {
-    this._addingSensor.set(personIdx, { name: '', entity_id: '' });
-    this.requestUpdate();
-  }
-
-  _updateAddingSensor(personIdx: number, field: 'name' | 'entity_id', value: string) {
-    const sensor = this._addingSensor.get(personIdx);
-    if (sensor) {
-      this._addingSensor.set(personIdx, { ...sensor, [field]: value });
-      this.requestUpdate();
-    }
-  }
-
-  _saveAddingSensor(personIdx: number) {
-    const sensor = this._addingSensor.get(personIdx);
-    if (!sensor) return;
-
-    // Only save if name and entity_id are provided
-    if (!sensor.name.trim() || !sensor.entity_id.trim()) {
-      return;
-    }
-
+  _addNamedSensor(personIdx: number) {
     const persons = [...this._config.persons];
     const namedSensors: PersonSensors = persons[personIdx].namedSensors || {};
 
-    // Parse entity_id - support comma-separated for multiple
-    const entityIds = sensor.entity_id.includes(',')
-      ? sensor.entity_id.split(',').map(id => id.trim()).filter(id => id)
-      : sensor.entity_id.trim();
+    // Find a unique name like "sensor1", "sensor2", etc.
+    let counter = 1;
+    while (namedSensors[`sensor${counter}`]) {
+      counter++;
+    }
 
-    namedSensors[sensor.name.trim()] = {
-      entity_id: entityIds
-    };
-
+    namedSensors[`sensor${counter}`] = { entity_id: '' };
     persons[personIdx] = { ...persons[personIdx], namedSensors };
     this._config = { ...this._config, persons };
-
-    // Clear adding state
-    this._addingSensor.delete(personIdx);
-
     this.requestUpdate();
     this._emitConfigChanged();
   }
 
-  _cancelAddingSensor(personIdx: number) {
-    this._addingSensor.delete(personIdx);
+  _updateNamedSensorName(personIdx: number, oldName: string, newName: string) {
+    if (!newName.trim() || newName === oldName) return;
+
+    const persons = [...this._config.persons];
+    const namedSensors: PersonSensors = persons[personIdx].namedSensors || {};
+
+    // Check if new name already exists
+    if (namedSensors[newName.trim()] && newName.trim() !== oldName) {
+      alert('A sensor with this name already exists');
+      return;
+    }
+
+    // Move sensor to new name
+    const sensor = namedSensors[oldName];
+    delete namedSensors[oldName];
+    namedSensors[newName.trim()] = sensor;
+
+    persons[personIdx] = { ...persons[personIdx], namedSensors };
+    this._config = { ...this._config, persons };
     this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _updateNamedSensorEntity(personIdx: number, sensorName: string, value: string) {
+    const persons = [...this._config.persons];
+    const namedSensors: PersonSensors = persons[personIdx].namedSensors || {};
+
+    // Parse entity_id - support comma-separated for multiple
+    const entityIds = value.includes(',')
+      ? value.split(',').map(id => id.trim()).filter(id => id)
+      : value.trim();
+
+    namedSensors[sensorName] = { entity_id: entityIds };
+    persons[personIdx] = { ...persons[personIdx], namedSensors };
+    this._config = { ...this._config, persons };
+    this.requestUpdate();
+    this._emitConfigChanged();
   }
 
   _removeNamedSensor(personIdx: number, sensorName: string) {
@@ -657,12 +792,46 @@ export class WhereaboutsCardEditor extends LitElement {
   }
 
   _addHideIfCondition(personIdx: number) {
-    const key = prompt('Enter condition key (sensor name):');
-    if (!key || !key.trim()) return;
+    const persons = [...this._config.persons];
+    const hideIf = { ...(persons[personIdx].hideIf || {}) };
 
-    const valueStr = prompt('Enter value(s) - comma-separated for multiple, use operators like >5, <=10, <>off:');
-    if (valueStr === null) return;
+    // Find a unique key like "condition1", "condition2", etc.
+    let counter = 1;
+    while (hideIf[`condition${counter}`]) {
+      counter++;
+    }
 
+    hideIf[`condition${counter}`] = '';
+    persons[personIdx] = { ...persons[personIdx], hideIf };
+    this._config = { ...this._config, persons };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _updateHideIfConditionKey(personIdx: number, oldKey: string, newKey: string) {
+    if (!newKey.trim() || newKey === oldKey) return;
+
+    const persons = [...this._config.persons];
+    const hideIf = { ...(persons[personIdx].hideIf || {}) };
+
+    // Check if new key already exists
+    if (hideIf[newKey.trim()] && newKey.trim() !== oldKey) {
+      alert('A condition with this key already exists');
+      return;
+    }
+
+    // Move condition to new key
+    const value = hideIf[oldKey];
+    delete hideIf[oldKey];
+    hideIf[newKey.trim()] = value;
+
+    persons[personIdx] = { ...persons[personIdx], hideIf };
+    this._config = { ...this._config, persons };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _updateHideIfConditionValue(personIdx: number, key: string, valueStr: string) {
     const persons = [...this._config.persons];
     const hideIf = { ...(persons[personIdx].hideIf || {}) };
 
@@ -671,7 +840,7 @@ export class WhereaboutsCardEditor extends LitElement {
       ? valueStr.split(',').map(v => v.trim()).filter(v => v)
       : valueStr.trim();
 
-    hideIf[key.trim()] = value;
+    hideIf[key] = value;
     persons[personIdx] = { ...persons[personIdx], hideIf };
     this._config = { ...this._config, persons };
     this.requestUpdate();

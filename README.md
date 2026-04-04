@@ -83,6 +83,7 @@ persons:
 | `persons` | List of person configurations | `[]` | Array of person objects (see below) |
 | `show_title` | Show card title header | `true` | Boolean |
 | `title` | Card title text | `Whereabouts` | String |
+| `show_avatars` | Show person avatars in a separate column | `false` | Boolean |
 | `default_verb` | Default verb for location display (e.g., "is", "are") | `is` | String |
 | `default_preposition` | Default preposition for locations (e.g., "in", "at") | `in` | String |
 
@@ -248,7 +249,6 @@ template: "{name} {verb} {-preposition} {-location} <right {icon}>"
 - `{preposition}` - Preposition (respects show_preposition setting)
 - `{location}` - Zone or zone group name (respects location_override)
 - `{icon}` - Icon element
-- `{avatar}` - Person's avatar/profile picture (from entity_picture attribute)
 
 **Special Syntax:**
 - `{-placeholder}` - Omits preceding whitespace if value is empty
@@ -260,17 +260,11 @@ template: "{name} {verb} {-preposition} {-location} <right {icon}>"
 # Default (Norwegian word order)
 template: "{name} {verb} {-preposition} {-location} <right {icon}>"
 
-# With avatar on left
-template: "{avatar} {name} {verb} {-preposition} {-location} <right {icon}>"
-
 # No icon, location first
 template: "{location}: {name} {verb}"
 
 # Icon on left
 template: "{icon} {name} {verb} {-preposition} {-location}"
-
-# Avatar and icon
-template: "<right {avatar}> {icon} {name} {verb} {-preposition} {-location}"
 ```
 
 ## Usage
