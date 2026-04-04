@@ -14,6 +14,19 @@ export class WhereaboutsCardEditor extends LitElement {
       .filter(eid => !this._config.persons.some(p => p.entity_id === eid));
   }
 
+  get usedIcons(): string[] {
+    const icons = new Set<string>();
+    // Collect from activities
+    (this._config.activities ?? []).forEach(activity => {
+      if (activity.icon) icons.add(activity.icon);
+    });
+    // Collect from zone groups
+    (this._config.zone_groups ?? []).forEach(group => {
+      if (group.icon) icons.add(group.icon);
+    });
+    return Array.from(icons).sort();
+  }
+
   get availableZones(): string[] {
     if (!this.hass) return [];
     let allZones = Object.keys(this.hass.states).filter(eid => eid.startsWith('zone.'));
@@ -41,6 +54,50 @@ export class WhereaboutsCardEditor extends LitElement {
     })) as ZoneGroup[];
 
     this.requestUpdate();
+  }
+
+  private _renderIconPicker(currentValue: string, placeholder: string, onChange: (value: string) => void) {
+    const defaultIcons = [
+      'mdi:account', 'mdi:home', 'mdi:office-building', 'mdi:briefcase',
+      'mdi:gamepad', 'mdi:power-sleep', 'mdi:bike', 'mdi:car', 'mdi:walk',
+      'mdi:run', 'mdi:map-marker', 'mdi:school', 'mdi:shopping', 'mdi:hospital',
+      'mdi:food', 'mdi:coffee', 'mdi:dumbbell', 'mdi:airplane', 'mdi:phone',
+      'mdi:laptop', 'mdi:television', 'mdi:briefcase-clock', 'mdi:desktop-classic'
+    ];
+
+    // Merge used icons with defaults
+    const allIcons = [...new Set([...this.usedIcons, ...defaultIcons])].sort();
+
+    return html`
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+        <input
+          type="text"
+          .value=${currentValue || ''}
+          @input=${(e: Event) => onChange((e.target as HTMLInputElement).value)}
+          placeholder=${placeholder}
+          list="icon-suggestions-enhanced"
+          style="flex: 1;"
+        />
+        ${currentValue ? html`<ha-icon icon="${currentValue}" style="--mdc-icon-size: 24px;"></ha-icon>` : ''}
+      </div>
+      <details style="margin-top: 4px; margin-bottom: 8px;">
+        <summary style="cursor: pointer; font-size: 0.9em; color: #666;">Pick an icon</summary>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 4px; margin-top: 8px; padding: 8px; background: var(--secondary-background-color); border-radius: 4px; max-height: 200px; overflow-y: auto;">
+          ${allIcons.map(icon => html`
+            <button
+              @click=${() => {
+                onChange(icon);
+                this.requestUpdate();
+              }}
+              style="padding: 8px; border: 1px solid var(--divider-color); background: var(--card-background-color); border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; ${currentValue === icon ? 'border-color: var(--primary-color); border-width: 2px;' : ''}"
+              title="${icon}"
+            >
+              <ha-icon icon="${icon}" style="--mdc-icon-size: 20px;"></ha-icon>
+            </button>
+          `)}
+        </div>
+      </details>
+    `;
   }
 
   render() {
@@ -244,13 +301,16 @@ export class WhereaboutsCardEditor extends LitElement {
                 </div>
                 <div>
                   <label>Icon (optional):</label>
-                  <input
-                    type="text"
-                    .value=${activity.icon || ''}
-                    @input=${(e: Event) => this._activityIconChanged(idx, e)}
-                    placeholder="e.g., mdi:gamepad"
-                    list="icon-suggestions"
-                  />
+                  ${this._renderIconPicker(
+                    activity.icon || '',
+                    'e.g., mdi:gamepad',
+                    (value) => {
+                      const activities = [...(this._config.activities || [])];
+                      activities[idx] = { ...activities[idx], icon: value || undefined };
+                      this._config = { ...this._config, activities };
+                      this._emitConfigChanged();
+                    }
+                  )}
                 </div>
                 <div>
                   <label>
@@ -335,10 +395,17 @@ export class WhereaboutsCardEditor extends LitElement {
                 </label>
               </div>
               <div>
-                <label>
-                  Icon:
-                  <input type="text" .value=${group.icon ?? ''} @input=${(e: Event) => this._zoneGroupIconChanged(gidx, e)} placeholder="(optional, e.g., mdi:home)" list="icon-suggestions" />
-                </label>
+                <label>Icon:</label>
+                ${this._renderIconPicker(
+                  group.icon || '',
+                  '(optional, e.g., mdi:home)',
+                  (value) => {
+                    const zone_groups = [...(this._config.zone_groups || [])];
+                    zone_groups[gidx] = { ...zone_groups[gidx], icon: value || undefined };
+                    this._config = { ...this._config, zone_groups };
+                    this._emitConfigChanged();
+                  }
+                )}
               </div>
               <div>
                 <label>Add zone:</label>
@@ -413,7 +480,8 @@ export class WhereaboutsCardEditor extends LitElement {
         `)}
       </datalist>
 
-      <datalist id="icon-suggestions">
+      <datalist id="icon-suggestions-enhanced">
+        ${this.usedIcons.map(icon => html`<option value="${icon}">`)}
         <option value="mdi:account">
         <option value="mdi:home">
         <option value="mdi:office-building">
@@ -435,6 +503,8 @@ export class WhereaboutsCardEditor extends LitElement {
         <option value="mdi:phone">
         <option value="mdi:laptop">
         <option value="mdi:television">
+        <option value="mdi:briefcase-clock">
+        <option value="mdi:desktop-classic">
       </datalist>
 
       <datalist id="activity-condition-suggestions">
