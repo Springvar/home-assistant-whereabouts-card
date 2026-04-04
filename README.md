@@ -192,6 +192,7 @@ conditions:
   status: ["active", "busy"]       # Match any in array
   timer: "!=idle"                  # Not equal comparison
   override: "!"                    # Boolean false check
+  when: ["morning", "weekday"]     # Match multiple time periods (OR logic)
   who: ["person.john", "John"]     # Special: match person
   where: ["work", "zone.office"]   # Special: match zone or zone group
 ```
@@ -202,6 +203,7 @@ conditions:
 - `user`: Matches against the current Home Assistant user (by user ID, user name, or associated person entity)
 
 **Temporal Condition Keys:**
+- `when`: Array of time periods (OR logic) - matches if ANY period matches. Values: `"night"`, `"morning"`, `"afternoon"`, `"evening"`, `"weekday"`, `"weekend"`, `"schoolday"`, `"afterschool"`
 - `is_workday`: `"true"` on Monday-Friday, `"false"` on weekends
 - `is_work_hours`: `"true"` on workdays between 08:00-16:00
 - `is_night`: `"true"` between 00:00-06:00

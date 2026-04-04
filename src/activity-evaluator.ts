@@ -44,6 +44,36 @@ function getCurrentDay(): string {
     return days[getCurrentTime().getDay()];
 }
 
+/**
+ * Check if current time matches a "when" period (night, morning, weekday, etc.)
+ */
+function matchesWhenPeriod(period: string): boolean {
+    const lowerPeriod = period.toLowerCase();
+    const hour = getCurrentTime().getHours();
+    const day = getCurrentTime().getDay();
+
+    switch (lowerPeriod) {
+        case 'night':
+            return hour >= 0 && hour < 6;
+        case 'morning':
+            return hour >= 6 && hour < 12;
+        case 'afternoon':
+            return hour >= 12 && hour < 18;
+        case 'evening':
+            return hour >= 18 && hour < 24;
+        case 'weekday':
+        case 'schoolday':
+            return day >= 1 && day <= 5;
+        case 'weekend':
+            return day === 0 || day === 6;
+        case 'afterschool':
+            // After school hours on weekdays (14:00-18:00)
+            return day >= 1 && day <= 5 && hour >= 14 && hour < 18;
+        default:
+            return false;
+    }
+}
+
 export interface EvaluatedActivity {
     activity: string;
     location_override?: string;
@@ -96,6 +126,12 @@ export class ActivityEvaluator {
     }
 
     private evaluateCondition(key: string, expectedValue: string | string[]): boolean {
+        // Special case: "when" matches array of time periods (OR logic)
+        if (key === 'when') {
+            const periods = Array.isArray(expectedValue) ? expectedValue : [expectedValue];
+            return periods.some(period => matchesWhenPeriod(period));
+        }
+
         // Special case: temporal conditions
         if (key === 'is_workday') {
             return this.matchesValue(isWorkday() ? 'true' : 'false', expectedValue);
