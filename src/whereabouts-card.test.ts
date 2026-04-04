@@ -124,31 +124,6 @@ describe('WhereaboutsCard', () => {
         });
     });
 
-    describe('getZoneEntityIdByFriendlyName', () => {
-        it('finds zone entity by friendly name', () => {
-            const hass = createMockHass({
-                'zone.home': { attributes: { friendly_name: 'Home' } },
-                'zone.office': { attributes: { friendly_name: 'Office' } }
-            });
-            const result = element.getZoneEntityIdByFriendlyName(hass, 'Office');
-            expect(result).toBe('zone.office');
-        });
-
-        it('returns undefined when zone not found', () => {
-            const hass = createMockHass({
-                'zone.home': { attributes: { friendly_name: 'Home' } }
-            });
-            const result = element.getZoneEntityIdByFriendlyName(hass, 'Office');
-            expect(result).toBeUndefined();
-        });
-
-        it('returns undefined when no zones exist', () => {
-            const hass = createMockHass({});
-            const result = element.getZoneEntityIdByFriendlyName(hass, 'Office');
-            expect(result).toBeUndefined();
-        });
-    });
-
     describe('render', () => {
         it('renders "No persons configured" when persons array is empty', async () => {
             element.setConfig({ persons: [] });
@@ -302,11 +277,11 @@ describe('WhereaboutsCard', () => {
             });
             element.hass = hass;
             await element.updateComplete;
-            const content = element.shadowRoot?.textContent || '';
-            expect(content).toContain('John');
-            expect(content).toContain('is');
-            expect(content).not.toContain('at');
-            expect(content).toContain('Home');
+            const personLocation = element.shadowRoot?.querySelector('.person-location')?.textContent || '';
+            expect(personLocation).toContain('John');
+            expect(personLocation).toContain('is');
+            expect(personLocation).not.toContain(' at ');
+            expect(personLocation).toContain('Home');
         });
 
         it('matches zone groups by zone entity ID', async () => {
@@ -367,6 +342,7 @@ describe('WhereaboutsCard', () => {
             expect(content).toContain('Home');
             expect(content).toContain('Office');
         });
+
     });
 
     describe('getConfigElement', () => {

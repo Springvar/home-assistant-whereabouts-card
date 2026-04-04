@@ -6,7 +6,7 @@
   "scripts": {
     "build": "vite build",
     "build:watch": "vite build --watch",
-    "dev": "concurrently \"vite build --watch\" \"vite\" --names \"build,serve\" --prefix-colors \"cyan,green\"",
+    "dev": "vite",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"

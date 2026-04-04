@@ -1,16 +1,41 @@
 persons:
   - entity_id: person.jane
     name: Jane Doe
+    namedSensors:
+      activity:
+        entity_id: sensor.jane_activity
   - entity_id: person.john
     name: John Smith
+    namedSensors:
+      activity:
+        entity_id: sensor.john_activity
+  - entity_id: person.jim
+    name: Jim Incognito
+    namedSensors:
+      visibility:
+        entity_id: sensor.jim_visibility
+    hideIf:
+      visibility: "hidden"
 show_title: true
 title: Whereabouts Test
 default_verb: is
 default_preposition: at
+activities:
+  - verb: "is working"
+    location_override: "-"
+    conditions:
+      activity: "working"
+      where: "work"
+  - verb: "is gaming"
+    show_preposition: true
+    conditions:
+      activity: "gaming"
+      where: "home"
 zone_groups:
   - name: "work"
     zones: ["zone.office", "zone.laboratory"]
     show_preposition: true
   - name: "home"
     zones: ["zone.home"]
+    preposition: "at"
     show_preposition: false

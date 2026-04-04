@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Whereabouts Card + Editor Demo</title>
+        <script type="module" src="/src/whereabouts-card.ts"></script>
+        <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+        <style>
+            :root {
+                --primary-color: #03a9f4;
+                --accent-color: #ff9800;
+                --primary-background-color: #fafafa;
+                --secondary-background-color: #e0e0e0;
+                --ha-card-background: #fff;
+                --ha-card-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.12);
+                --primary-text-color: #212121;
+                --secondary-text-color: #757575;
+                --info-color: #2196f3;
+                --success-color: #43a047;
+                --warning-color: #fb8c00;
+                --error-color: #c0392b;
+            }
+            body {
+                background: #fafafa;
+                font-family: sans-serif;
+                margin: 0;
+                padding: 2em;
+            }
+            .container {
+                display: flex;
+                gap: 2em;
+                max-width: 1400px;
+                margin: 0 auto;
+                align-items: flex-start;
+            }
+            .editor-column {
+                flex: 1 1 600px;
+                min-width: 400px;
+            }
+            .preview-column {
+                flex: 0 1 400px;
+                min-width: 300px;
+                position: sticky;
+                top: 2em;
+            }
+            h2 {
+                color: var(--primary-text-color);
+                margin-top: 0;
+                margin-bottom: 1em;
+            }
+            whereabouts-card-editor {
+                display: block;
+            }
+            whereabouts-card {
+                display: block;
+            }
+            @media (max-width: 900px) {
+                .container {
+                    flex-direction: column;
+                }
+                .preview-column {
+                    position: static;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="editor-column">
+                <h2>Editor</h2>
+                <whereabouts-card-editor id="whereaboutseditor"></whereabouts-card-editor>
+            </div>
+
+            <div class="preview-column">
+                <h2>Card Preview</h2>
+                <whereabouts-card id="whereaboutscard"></whereabouts-card>
+            </div>
+        </div>
+
+        <script>
+            const dummyHass = {
+                states: {
+                    'person.jane': {
+                        state: 'office',
+                        attributes: {
+                            friendly_name: 'Jane Doe',
+                            latitude: 63.4305,
+                            longitude: 10.3951
+                        }
+                    },
+                    'person.john': {
+                        state: 'home',
+                        attributes: {
+                            friendly_name: 'John Smith',
+                            latitude: 63.4041,
+                            longitude: 10.4301
+                        }
+                    },
+                    'person.alice': {
+                        state: 'laboratory',
+                        attributes: {
+                            friendly_name: 'Alice Johnson',
+                            latitude: 63.4200,
+                            longitude: 10.4000
+                        }
+                    },
+                    'person.jim': {
+                        state: 'home',
+                        attributes: {
+                            friendly_name: 'Jim Incognito',
+                            latitude: 63.4041,
+                            longitude: 10.4301
+                        }
+                    },
+                    'sensor.jane_activity': {
+                        state: 'working',
+                        attributes: {
+                            friendly_name: 'Jane Activity'
+                        }
+                    },
+                    'sensor.john_activity': {
+                        state: 'gaming',
+                        attributes: {
+                            friendly_name: 'John Activity'
+                        }
+                    },
+                    'sensor.jim_visibility': {
+                        state: 'hidden',
+                        attributes: {
+                            friendly_name: 'Jim Visibility'
+                        }
+                    },
+                    'zone.office': {
+                        state: 'zoning',
+                        attributes: {
+                            friendly_name: 'Main Office',
+                            latitude: 63.4305,
+                            longitude: 10.3951,
+                            radius: 100
+                        }
+                    },
+                    'zone.laboratory': {
+                        state: 'zoning',
+                        attributes: {
+                            friendly_name: 'Lab',
+                            latitude: 63.4200,
+                            longitude: 10.4000,
+                            radius: 50
+                        }
+                    },
+                    'zone.home': {
+                        state: 'zoning',
+                        attributes: {
+                            friendly_name: 'Home',
+                            latitude: 63.4041,
+                            longitude: 10.4301,
+                            radius: 100
+                        }
+                    }
+                }
+            };
+
+            function getConfigFile() {
+                const params = new URLSearchParams(window.location.search);
+                const cfgName = params.get('config');
+                return cfgName ? `${cfgName}.yaml` : 'config.yaml';
+            }
+
+            async function initComponents() {
+                try {
+                    const resp = await fetch(getConfigFile());
+                    if (!resp.ok) throw new Error("Config file not found");
+                    const yamlSource = await resp.text();
+                    const cardConfig = window.jsyaml.load(yamlSource);
+
+                    await window.customElements.whenDefined('whereabouts-card');
+                    await window.customElements.whenDefined('whereabouts-card-editor');
+
+                    const card = document.getElementById('whereaboutscard');
+                    const editor = document.getElementById('whereaboutseditor');
+
+                    // Initialize card
+                    card.setConfig(cardConfig);
+                    card.hass = dummyHass;
+
+                    // Initialize editor
+                    editor.hass = dummyHass;
+                    if (editor.setConfig) {
+                        editor.setConfig(cardConfig);
+                    }
+
+                    // Listen for config changes from editor
+                    editor.addEventListener('config-changed', (event) => {
+                        console.log('Config changed:', event.detail.config);
+                        card.setConfig(event.detail.config);
+                        card.requestUpdate();
+                    });
+
+                    console.log('Card and editor initialized with config:', cardConfig);
+                } catch (e) {
+                    console.error("Error initializing components:", e);
+                    document.getElementById('whereaboutscard').innerHTML =
+                        `<div style="padding: 20px; color: red;">Error: ${e.message}</div>`;
+                }
+            }
+
+            initComponents();
+        </script>
+    </body>
+</html>
