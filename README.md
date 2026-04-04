@@ -84,7 +84,7 @@ persons:
 | `show_title` | Show card title header | `true` | Boolean |
 | `title` | Card title text | `Whereabouts` | String |
 | `show_avatars` | Show person avatars in a separate column | `false` | Boolean |
-| `default_verb` | Default verb for location display (e.g., "is", "are") | `is` | String |
+| `default_activity` | Default activity for location display (e.g., "is", "are") | `is` | String |
 | `default_preposition` | Default preposition for locations (e.g., "in", "at") | `in` | String |
 
 ### Advanced Configuration
@@ -154,17 +154,17 @@ Supported operators: `>`, `<`, `>=`, `<=`, `=`, `!=`, `<>`
 
 #### Activities Configuration
 
-Activities detect contextual states and display custom verbs and icons:
+Activities detect contextual states and display custom activity text and icons:
 
 ```yaml
 activities:
-  - verb: "is working"
+  - activity: "is working"
     icon: "mdi:briefcase"
     location_override: "-"
     conditions:
       activity: "working"
       where: "work"
-  - verb: "is gaming"
+  - activity: "is gaming"
     icon: "mdi:gamepad"
     show_preposition: true
     conditions:
@@ -174,7 +174,7 @@ activities:
 
 | Name | Description | Default Value | Constraints |
 | ---- | ----------- | ------------- | ----------- |
-| `verb` | Activity verb to display. Supports sensor placeholders like `{sensorName}` | **Required** | String |
+| `activity` | Activity text to display. Supports sensor placeholders like `{sensorName}` | **Required** | String |
 | `conditions` | Conditions that must match | **Required** | Object with condition key-value pairs |
 | `icon` | Icon override for this activity | `undefined` | String (mdi:icon-name) |
 | `location_override` | Custom location text, or "-" to hide location | `undefined` | String |
@@ -217,9 +217,9 @@ Supported operators: `>`, `<`, `>=`, `<=`, `=`, `!=`, `<>`
 
 **Activities are evaluated top-to-bottom** and the first matching activity is used.
 
-**Sensor Placeholders in Activity Verbs:**
+**Sensor Placeholders in Activity Text:**
 
-You can use `{sensorName}` placeholders in activity verbs to dynamically set the displayed text from a sensor value:
+You can use `{sensorName}` placeholders in activity text to dynamically set the displayed text from a sensor value:
 
 ```yaml
 persons:
@@ -230,12 +230,12 @@ persons:
       override:
         entity_id: sensor.john_activity_timer
 activities:
-  - verb: "{activity}"
+  - activity: "{activity}"
     conditions:
-      override: ">0"
+      override: "!=idle"
 ```
 
-When the condition matches, the verb will be replaced with the current state of the `activity` sensor. For example, if `sensor.john_activity_override` has state "is exercising", that text will be displayed instead of the placeholder.
+When the condition matches, the activity text will be replaced with the current state of the `activity` sensor. For example, if `sensor.john_activity_override` has state "is exercising", that text will be displayed instead of the placeholder.
 
 #### Zone Groups Configuration
 
@@ -280,16 +280,17 @@ zone_groups:
 Customize the display format using template placeholders:
 
 ```yaml
-template: "{name} {verb} {-preposition} {-location} <right {icon}>"
+template: "{name} {activity} {-preposition} {-location} <right {icon}>"
 ```
 
 | Name | Description | Default Value |
 | ---- | ----------- | ------------- |
-| `template` | Display template with placeholders | `{name} {verb} {-preposition} {-location} <right {icon}>` |
+| `template` | Display template with placeholders | `{name} {activity} {-preposition} {-location} <right {icon}>` |
 
 **Available Placeholders:**
 - `{name}` - Person's display name
-- `{verb}` - Activity verb or default verb
+- `{activity}` - Activity text or default activity
+- `{verb}` - Alias for `{activity}` (backward compatibility)
 - `{preposition}` - Preposition (respects show_preposition setting)
 - `{location}` - Zone or zone group name (respects location_override)
 - `{icon}` - Icon element
@@ -301,14 +302,14 @@ template: "{name} {verb} {-preposition} {-location} <right {icon}>"
 **Example Templates:**
 
 ```yaml
-# Default (Norwegian word order)
-template: "{name} {verb} {-preposition} {-location} <right {icon}>"
+# Default
+template: "{name} {activity} {-preposition} {-location} <right {icon}>"
 
 # No icon, location first
-template: "{location}: {name} {verb}"
+template: "{location}: {name} {activity}"
 
 # Icon on left
-template: "{icon} {name} {verb} {-preposition} {-location}"
+template: "{icon} {name} {activity} {-preposition} {-location}"
 ```
 
 ## Usage
@@ -322,7 +323,7 @@ template: "{icon} {name} {verb} {-preposition} {-location}"
 
 **Activity Detection:**
 - Evaluates sensor conditions to detect contextual activities
-- Customizable verbs and icons per activity
+- Customizable activity text and icons per activity
 - Can override or hide location information
 - Activities evaluated in order (first match wins)
 
@@ -359,17 +360,17 @@ persons:
       activity:
         entity_id: sensor.jane_activity
 activities:
-  - verb: "is working"
+  - activity: "is working"
     icon: "mdi:briefcase"
     location_override: "-"
     conditions:
       activity: "working"
-  - verb: "is sleeping"
+  - activity: "is sleeping"
     icon: "mdi:power-sleep"
     conditions:
       activity: "sleeping"
       where: "home"
-default_verb: "is"
+default_activity: "is"
 default_preposition: "at"
 ```
 
@@ -422,13 +423,13 @@ persons:
         entity_id: sensor.jane_activity
 activities:
   # Show "You are..." for the current user
-  - verb: "are working"
+  - activity: "are working"
     icon: "mdi:briefcase"
     conditions:
       user: "person.john"  # Or user ID or name
       activity: "working"
   # Show "is working" for others
-  - verb: "is working"
+  - activity: "is working"
     icon: "mdi:briefcase"
     conditions:
       activity: "working"
@@ -445,21 +446,21 @@ persons:
         entity_id: sensor.john_activity
 activities:
   # Show specific message during work hours
-  - verb: "is working at the office"
+  - activity: "is working at the office"
     icon: "mdi:briefcase-clock"
     location_override: "-"
     conditions:
       is_work_hours: "true"
       where: "work"
   # Show different message on weekend mornings
-  - verb: "is having breakfast"
+  - activity: "is having breakfast"
     icon: "mdi:coffee"
     conditions:
       is_workday: "false"
       is_morning: "true"
       where: "home"
   # Day-specific activity
-  - verb: "is at gym (leg day)"
+  - activity: "is at gym (leg day)"
     icon: "mdi:dumbbell"
     conditions:
       day: "mon"
@@ -473,9 +474,9 @@ type: custom:whereabouts-card
 persons:
   - entity_id: person.john
   - entity_id: person.jane
-default_verb: "er"
+default_activity: "er"
 default_preposition: "på"
-template: "{name} {verb} {-preposition} {-location} <right {icon}>"
+template: "{name} {activity} {-preposition} {-location} <right {icon}>"
 ```
 
 ## Support

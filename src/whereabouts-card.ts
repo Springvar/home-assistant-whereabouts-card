@@ -24,11 +24,12 @@ export interface WhereaboutsCardConfig {
     show_title?: boolean;
     title?: string;
     show_avatars?: boolean;
-    default_verb?: string;
+    default_activity?: string;
+    default_verb?: string; // Deprecated: use default_activity
     default_preposition?: string;
     activities?: Activity[];
     zone_groups?: ZoneGroup[];
-    template?: string; // Template for display (default: "{name} {verb} {-preposition} {-location} <right {icon}>")
+    template?: string; // Template for display (default: "{name} {activity} {-preposition} {-location} <right {icon}>")
 }
 
 class WhereaboutsCard extends LitElement {
@@ -45,7 +46,7 @@ class WhereaboutsCard extends LitElement {
     declare show_avatars: boolean;
 
     @property({ type: String })
-    declare default_verb: string;
+    declare default_activity: string;
 
     @property({ type: String })
     declare default_preposition: string;
@@ -84,7 +85,7 @@ class WhereaboutsCard extends LitElement {
             persons,
             show_title: true,
             title: 'Whereabouts',
-            default_verb: 'is',
+            default_activity: 'is',
             default_preposition: 'in',
             zone_groups: []
         };
@@ -96,7 +97,7 @@ class WhereaboutsCard extends LitElement {
             persons: {},
             show_title: {},
             title: {},
-            default_verb: {},
+            default_activity: {},
             default_preposition: {},
             zone_groups: {}
         };
@@ -108,21 +109,21 @@ class WhereaboutsCard extends LitElement {
         if (this.show_title === undefined) this.show_title = true;
         if (!this.title) this.title = 'Whereabouts';
         if (this.show_avatars === undefined) this.show_avatars = false;
-        if (!this.default_verb) this.default_verb = 'is';
+        if (!this.default_activity) this.default_activity = 'is';
         if (!this.default_preposition) this.default_preposition = 'in';
         if (!this.activities) this.activities = [];
         if (!this.zone_groups) this.zone_groups = [];
 
-        // Apply config
+        // Apply config (support both new and legacy field names)
         this.persons = config.persons || [];
         this.show_title = config.show_title !== undefined ? config.show_title : true;
         this.title = config.title || 'Whereabouts';
         this.show_avatars = config.show_avatars !== undefined ? config.show_avatars : false;
-        this.default_verb = config.default_verb || 'is';
+        this.default_activity = config.default_activity || config.default_verb || 'is';
         this.default_preposition = config.default_preposition || 'in';
         this.activities = config.activities || [];
         this.zone_groups = (config.zone_groups || []).map((z) => ({ ...z, show_preposition: z.show_preposition !== false }));
-        this.template = config.template || '{name} {verb} {-preposition} {-location} <right {icon}>';
+        this.template = config.template || '{name} {activity} {-preposition} {-location} <right {icon}>';
     }
 
     render() {
@@ -152,9 +153,9 @@ class WhereaboutsCard extends LitElement {
                             const evaluator = new ActivityEvaluator(this.hass, person, this.activities, this.zone_groups);
                             evaluatedActivity = evaluator.evaluate();
 
-                            // Resolve sensor placeholders in verb
+                            // Resolve sensor placeholders in activity
                             if (evaluatedActivity) {
-                                evaluatedActivity.verb = this.resolveSensorPlaceholders(evaluatedActivity.verb, person);
+                                evaluatedActivity.activity = this.resolveSensorPlaceholders(evaluatedActivity.activity, person);
                             }
                         }
 
@@ -223,9 +224,11 @@ class WhereaboutsCard extends LitElement {
                             : showPreposition;
 
                         // Prepare template variables
+                        const activityText = evaluatedActivity?.activity || this.default_activity;
                         const templateVars = {
                             name,
-                            verb: evaluatedActivity?.verb || this.default_verb,
+                            activity: activityText,
+                            verb: activityText, // Backward compatibility: support legacy {verb} in templates
                             preposition: effectiveShowPreposition ? usedPreposition : '',
                             location: locationText,
                             icon: displayIcon

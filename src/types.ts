@@ -46,7 +46,8 @@ export interface CalculatedActivity {
 
 // General activity with simple conditions (card-level)
 export interface Activity {
-    verb: string;
+    activity: string;
+    verb?: string; // Deprecated: use 'activity' instead
     conditions: ActivityConditions;
     location_override?: string; // Optional location override, "-" = hide location
     show_preposition?: boolean; // Override zone group's show_preposition setting

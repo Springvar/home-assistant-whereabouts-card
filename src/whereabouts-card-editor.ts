@@ -137,11 +137,11 @@ export class WhereaboutsCardEditor extends LitElement {
         </label>
       </div>
       <div>
-        <label>Default verb:</label>
+        <label>Default activity:</label>
         <input
           type="text"
-          .value=${this._config.default_verb ?? 'is'}
-          @input=${this._defaultVerbChanged}
+          .value=${this._config.default_activity ?? this._config.default_verb ?? 'is'}
+          @input=${this._defaultActivityChanged}
         />
       </div>
       <div>
@@ -288,9 +288,9 @@ export class WhereaboutsCardEditor extends LitElement {
                 <legend>
                   <input
                     type="text"
-                    .value=${activity.verb || ''}
-                    @input=${(e: Event) => this._activityVerbChanged(idx, e)}
-                    placeholder="Activity verb (e.g., is gaming)"
+                    .value=${activity.activity || activity.verb || ''}
+                    @input=${(e: Event) => this._activityChanged(idx, e)}
+                    placeholder="Activity (e.g., is gaming)"
                   />
                   ${idx > 0 ? html`<button @click=${() => this._moveActivityUp(idx)} title="Move Up">↑</button>` : ''}
                   ${idx < (this._config.activities?.length ?? 0) - 1 ? html`<button @click=${() => this._moveActivityDown(idx)} title="Move Down">↓</button>` : ''}
@@ -555,9 +555,9 @@ export class WhereaboutsCardEditor extends LitElement {
     this._emitConfigChanged();
   }
 
-  _defaultVerbChanged(e: Event) {
+  _defaultActivityChanged(e: Event) {
     const value = (e.target as HTMLInputElement).value;
-    this._config = { ...this._config, default_verb: value };
+    this._config = { ...this._config, default_activity: value };
     this.requestUpdate();
     this._emitConfigChanged();
   }
@@ -600,7 +600,7 @@ export class WhereaboutsCardEditor extends LitElement {
   }
 
   _addActivity() {
-    const activities = [...(this._config.activities ?? []), { verb: '', conditions: {} }];
+    const activities = [...(this._config.activities ?? []), { activity: '', conditions: {} }];
     this._config = { ...this._config, activities };
     this.requestUpdate();
     this._emitConfigChanged();
@@ -633,10 +633,10 @@ export class WhereaboutsCardEditor extends LitElement {
     this._emitConfigChanged();
   }
 
-  _activityVerbChanged(idx: number, e: Event) {
+  _activityChanged(idx: number, e: Event) {
     const value = (e.target as HTMLInputElement).value;
     const activities = [...(this._config.activities ?? [])];
-    activities[idx] = { ...activities[idx], verb: value };
+    activities[idx] = { ...activities[idx], activity: value };
     this._config = { ...this._config, activities };
     this.requestUpdate();
     this._emitConfigChanged();

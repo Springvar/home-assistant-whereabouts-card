@@ -52,14 +52,19 @@ describe('WhereaboutsCard', () => {
             expect(element.title).toBe('Whereabouts');
         });
 
-        it('sets custom default_verb', () => {
-            element.setConfig({ persons: [], default_verb: 'are' });
-            expect(element.default_verb).toBe('are');
+        it('sets custom default_activity', () => {
+            element.setConfig({ persons: [], default_activity: 'are' });
+            expect(element.default_activity).toBe('are');
         });
 
-        it('defaults default_verb to "is"', () => {
+        it('supports legacy default_verb field', () => {
+            element.setConfig({ persons: [], default_verb: 'are' });
+            expect(element.default_activity).toBe('are');
+        });
+
+        it('defaults default_activity to "is"', () => {
             element.setConfig({ persons: [] });
-            expect(element.default_verb).toBe('is');
+            expect(element.default_activity).toBe('is');
         });
 
         it('sets custom default_preposition', () => {

@@ -45,7 +45,7 @@ function getCurrentDay(): string {
 }
 
 export interface EvaluatedActivity {
-    verb: string;
+    activity: string;
     location_override?: string;
     show_preposition?: boolean;
     icon?: string;
@@ -72,7 +72,7 @@ export class ActivityEvaluator {
         for (const activity of this.activities) {
             if (this.evaluateActivity(activity)) {
                 return {
-                    verb: activity.verb,
+                    activity: activity.activity || activity.verb || '', // Support both new and legacy field names
                     location_override: activity.location_override,
                     show_preposition: activity.show_preposition,
                     icon: activity.icon

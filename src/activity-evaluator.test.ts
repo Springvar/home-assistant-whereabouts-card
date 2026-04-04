@@ -28,7 +28,7 @@ describe('ActivityEvaluator', () => {
             }
         };
         const activities: Activity[] = [{
-            verb: 'is working',
+            activity: 'is working',
             icon: 'mdi:briefcase',
             conditions: { activity: 'working' }
         }];
@@ -36,7 +36,7 @@ describe('ActivityEvaluator', () => {
 
         const result = evaluator.evaluate();
         expect(result).toEqual({
-            verb: 'is working',
+            activity: 'is working',
             icon: 'mdi:briefcase',
             location_override: undefined,
             show_preposition: undefined
@@ -68,7 +68,7 @@ describe('ActivityEvaluator', () => {
         const evaluator = new ActivityEvaluator(hass, person, activities, []);
 
         const result = evaluator.evaluate();
-        expect(result?.verb).toBe('is gaming');
+        expect(result?.activity).toBe('is gaming');
         expect(result?.icon).toBe('mdi:gamepad');
     });
 
@@ -138,7 +138,7 @@ describe('ActivityEvaluator', () => {
         });
         const person: PersonConfig = { entity_id: 'person.john' };
         const activities: Activity[] = [{
-            verb: 'is working',
+            activity: 'is working',
             conditions: { where: 'zone.office' }
         }];
         const evaluator = new ActivityEvaluator(hass, person, activities, []);
@@ -153,7 +153,7 @@ describe('ActivityEvaluator', () => {
         });
         const person: PersonConfig = { entity_id: 'person.john' };
         const activities: Activity[] = [{
-            verb: 'is working',
+            activity: 'is working',
             conditions: { where: 'office' }
         }];
         const evaluator = new ActivityEvaluator(hass, person, activities, []);
@@ -168,7 +168,7 @@ describe('ActivityEvaluator', () => {
         });
         const person: PersonConfig = { entity_id: 'person.john' };
         const activities: Activity[] = [{
-            verb: 'is working',
+            activity: 'is working',
             conditions: { where: 'Office' }
         }];
         const evaluator = new ActivityEvaluator(hass, person, activities, []);
@@ -187,7 +187,7 @@ describe('ActivityEvaluator', () => {
             zones: ['zone.office', 'zone.laboratory']
         }];
         const activities: Activity[] = [{
-            verb: 'is working',
+            activity: 'is working',
             conditions: { where: 'work' }
         }];
         const evaluator = new ActivityEvaluator(hass, person, activities, zoneGroups);
@@ -300,7 +300,7 @@ describe('ActivityEvaluator', () => {
             }
         };
         const activities: Activity[] = [{
-            verb: 'is working',
+            activity: 'is working',
             conditions: { activity: 'working' }
         }];
         const evaluator = new ActivityEvaluator(hass, person, activities, []);
@@ -314,7 +314,7 @@ describe('ActivityEvaluator', () => {
         });
         const person: PersonConfig = { entity_id: 'person.john' };
         const activities: Activity[] = [{
-            verb: 'is working',
+            activity: 'is working',
             conditions: { activity: 'working' }
         }];
         const evaluator = new ActivityEvaluator(hass, person, activities, []);
@@ -334,7 +334,7 @@ describe('ActivityEvaluator', () => {
             }
         };
         const activities: Activity[] = [{
-            verb: 'is working',
+            activity: 'is working',
             icon: 'mdi:briefcase',
             location_override: '-',
             show_preposition: false,
@@ -344,7 +344,7 @@ describe('ActivityEvaluator', () => {
 
         const result = evaluator.evaluate();
         expect(result).toEqual({
-            verb: 'is working',
+            activity: 'is working',
             icon: 'mdi:briefcase',
             location_override: '-',
             show_preposition: false
