@@ -196,8 +196,19 @@ export class ActivityEvaluator {
             return expectedValue.some(val => this.matchesValue(actualValue, val));
         }
 
-        // Parse operator from expected value
-        const operatorMatch = expectedValue.match(/^(>=|<=|<>|>|<|=)(.+)$/);
+        // Check for ! prefix (boolean false check)
+        if (expectedValue.startsWith('!')) {
+            const checkValue = expectedValue.substring(1).trim();
+            if (!checkValue) {
+                // Just "!" - check if actualValue is falsy
+                return this.isFalsy(actualValue);
+            }
+            // "!value" - check if actualValue != value
+            return actualValue !== checkValue;
+        }
+
+        // Parse operator from expected value (now includes !=)
+        const operatorMatch = expectedValue.match(/^(>=|<=|!=|<>|>|<|=)(.+)$/);
 
         if (operatorMatch) {
             const operator = operatorMatch[1];
@@ -208,6 +219,17 @@ export class ActivityEvaluator {
 
         // No operator - direct string comparison
         return actualValue === expectedValue;
+    }
+
+    private isFalsy(value: string): boolean {
+        const normalized = value.toLowerCase().trim();
+        return normalized === '' ||
+               normalized === '0' ||
+               normalized === 'false' ||
+               normalized === 'off' ||
+               normalized === 'no' ||
+               normalized === 'unavailable' ||
+               normalized === 'unknown';
     }
 
     private compareWithOperator(actualValue: string, operator: string, compareValue: string): boolean {
@@ -222,6 +244,7 @@ export class ActivityEvaluator {
                 case '>=': return actualNum >= compareNum;
                 case '<=': return actualNum <= compareNum;
                 case '=': return actualNum === compareNum;
+                case '!=':
                 case '<>': return actualNum !== compareNum;
             }
         }
@@ -229,6 +252,7 @@ export class ActivityEvaluator {
         // Fall back to string comparison
         switch (operator) {
             case '=': return actualValue === compareValue;
+            case '!=':
             case '<>': return actualValue !== compareValue;
             case '>': return actualValue > compareValue;
             case '<': return actualValue < compareValue;

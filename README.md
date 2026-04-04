@@ -142,9 +142,15 @@ hideIf:
   visibility: "hidden"           # Simple equality
   confidence: ">90"              # Numeric comparison
   status: ["away", "vacation"]   # Match any value in array
+  timer: "!=idle"                # Not equal comparison
+  active: "!"                    # Boolean false check
 ```
 
-Supported operators: `>`, `<`, `>=`, `<=`, `=`, `<>`
+Supported operators: `>`, `<`, `>=`, `<=`, `=`, `!=`, `<>`
+
+**Special prefix:**
+- `!` - Checks if value is falsy (empty, 0, false, off, no, unavailable, unknown)
+- `!value` - Checks if value is not equal to "value"
 
 #### Activities Configuration
 
@@ -183,6 +189,8 @@ conditions:
   activity: "working"              # Match sensor value
   confidence: ">80"                # Numeric comparison
   status: ["active", "busy"]       # Match any in array
+  timer: "!=idle"                  # Not equal comparison
+  override: "!"                    # Boolean false check
   who: ["person.john", "John"]     # Special: match person
   where: ["work", "zone.office"]   # Special: match zone or zone group
 ```
@@ -192,7 +200,11 @@ conditions:
 - `where`: Matches against zone entity ID, zone name, zone friendly name, or zone group name
 - `user`: Matches against the current Home Assistant user (by user ID, user name, or associated person entity)
 
-Supported operators: `>`, `<`, `>=`, `<=`, `=`, `<>`
+Supported operators: `>`, `<`, `>=`, `<=`, `=`, `!=`, `<>`
+
+**Special prefix:**
+- `!` - Checks if value is falsy (empty, 0, false, off, no, unavailable, unknown)
+- `!value` - Checks if value is not equal to "value"
 
 **Activities are evaluated top-to-bottom** and the first matching activity is used.
 

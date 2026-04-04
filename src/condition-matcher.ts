@@ -77,8 +77,19 @@ function matchesValue(actualValue: string, expectedValue: string | string[]): bo
         return expectedValue.some(val => matchesValue(actualValue, val));
     }
 
-    // Parse operator from expected value
-    const operatorMatch = expectedValue.match(/^(>=|<=|<>|>|<|=)(.+)$/);
+    // Check for ! prefix (boolean false check)
+    if (expectedValue.startsWith('!')) {
+        const checkValue = expectedValue.substring(1).trim();
+        if (!checkValue) {
+            // Just "!" - check if actualValue is falsy
+            return isFalsy(actualValue);
+        }
+        // "!value" - check if actualValue != value
+        return actualValue !== checkValue;
+    }
+
+    // Parse operator from expected value (now includes !=)
+    const operatorMatch = expectedValue.match(/^(>=|<=|!=|<>|>|<|=)(.+)$/);
 
     if (operatorMatch) {
         const operator = operatorMatch[1];
@@ -89,6 +100,17 @@ function matchesValue(actualValue: string, expectedValue: string | string[]): bo
 
     // No operator - direct string comparison
     return actualValue === expectedValue;
+}
+
+function isFalsy(value: string): boolean {
+    const normalized = value.toLowerCase().trim();
+    return normalized === '' ||
+           normalized === '0' ||
+           normalized === 'false' ||
+           normalized === 'off' ||
+           normalized === 'no' ||
+           normalized === 'unavailable' ||
+           normalized === 'unknown';
 }
 
 function compareWithOperator(actualValue: string, operator: string, compareValue: string): boolean {
@@ -103,6 +125,7 @@ function compareWithOperator(actualValue: string, operator: string, compareValue
             case '>=': return actualNum >= compareNum;
             case '<=': return actualNum <= compareNum;
             case '=': return actualNum === compareNum;
+            case '!=':
             case '<>': return actualNum !== compareNum;
         }
     }
@@ -110,6 +133,7 @@ function compareWithOperator(actualValue: string, operator: string, compareValue
     // Fall back to string comparison
     switch (operator) {
         case '=': return actualValue === compareValue;
+        case '!=':
         case '<>': return actualValue !== compareValue;
         case '>': return actualValue > compareValue;
         case '<': return actualValue < compareValue;
