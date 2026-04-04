@@ -394,28 +394,30 @@ export class WhereaboutsCardEditor extends LitElement {
                     ? Object.entries(person.hideIf).map(([key, value]) => {
                       const validation = this.validateConditionValue(key, value);
                       return html`
-                      <div style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
-                        <input
-                          type="text"
-                          value="${key}"
-                          placeholder="condition key"
-                          list="condition-key-suggestions-${idx}"
-                          style="width: 120px;"
-                          @blur=${(e: Event) => this._updateHideIfConditionKey(idx, key, (e.target as HTMLInputElement).value)}
-                        />
-                        <div style="flex: 1; position: relative;">
+                      <div style="margin-bottom: 0.5em;">
+                        <div style="display: flex; gap: 0.5em; align-items: center;">
+                          <input
+                            type="text"
+                            value="${key}"
+                            placeholder="condition key"
+                            list="condition-key-suggestions-${idx}"
+                            style="width: 120px;"
+                            @blur=${(e: Event) => this._updateHideIfConditionKey(idx, key, (e.target as HTMLInputElement).value)}
+                          />
                           <input
                             type="text"
                             value="${Array.isArray(value) ? value.join(', ') : value}"
                             placeholder="value (comma-separated for multiple)"
-                            style="width: 100%; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+                            style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
                             @blur=${(e: Event) => this._updateHideIfConditionValue(idx, key, (e.target as HTMLInputElement).value)}
                           />
-                          ${!validation.valid ? html`
-                            <span style="color: #ff9800; margin-left: 0.5em; font-size: 0.85em;" title="${validation.error}">⚠️ ${validation.error}</span>
-                          ` : ''}
+                          <button class="icon-button" @click=${() => this._removeHideIfCondition(idx, key)} title="Remove">🗑️</button>
                         </div>
-                        <button class="icon-button" @click=${() => this._removeHideIfCondition(idx, key)} title="Remove">🗑️</button>
+                        ${!validation.valid ? html`
+                          <div style="margin-left: 130px; margin-top: 0.25em; color: #ff9800; font-size: 0.85em;" title="${validation.error}">
+                            ⚠️ ${validation.error}
+                          </div>
+                        ` : ''}
                       </div>
                     `;
                     })
@@ -517,28 +519,30 @@ export class WhereaboutsCardEditor extends LitElement {
                     ${Object.entries(activity.conditions || {}).map(([key, value]) => {
                       const validation = this.validateConditionValue(key, value);
                       return html`
-                      <div style="display: flex; gap: 0.5em; margin-bottom: 0.5em; align-items: center;">
-                        <input
-                          type="text"
-                          value="${key}"
-                          placeholder="condition key"
-                          list="activity-condition-suggestions"
-                          style="width: 120px;"
-                          @blur=${(e: Event) => this._updateActivityConditionKey(idx, key, (e.target as HTMLInputElement).value)}
-                        />
-                        <div style="flex: 1; position: relative;">
+                      <div style="margin-bottom: 0.5em;">
+                        <div style="display: flex; gap: 0.5em; align-items: center;">
+                          <input
+                            type="text"
+                            value="${key}"
+                            placeholder="condition key"
+                            list="activity-condition-suggestions"
+                            style="width: 120px;"
+                            @blur=${(e: Event) => this._updateActivityConditionKey(idx, key, (e.target as HTMLInputElement).value)}
+                          />
                           <input
                             type="text"
                             value="${Array.isArray(value) ? value.join(', ') : value}"
                             placeholder="value (comma-separated for multiple)"
-                            style="width: 100%; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+                            style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
                             @blur=${(e: Event) => this._updateActivityConditionValue(idx, key, (e.target as HTMLInputElement).value)}
                           />
-                          ${!validation.valid ? html`
-                            <span style="color: #ff9800; margin-left: 0.5em; font-size: 0.85em;" title="${validation.error}">⚠️ ${validation.error}</span>
-                          ` : ''}
+                          <button class="icon-button" @click=${() => this._removeActivityCondition(idx, key)} title="Remove">🗑️</button>
                         </div>
-                        <button class="icon-button" @click=${() => this._removeActivityCondition(idx, key)} title="Remove">🗑️</button>
+                        ${!validation.valid ? html`
+                          <div style="margin-left: 130px; margin-top: 0.25em; color: #ff9800; font-size: 0.85em;" title="${validation.error}">
+                            ⚠️ ${validation.error}
+                          </div>
+                        ` : ''}
                       </div>
                     `;
                     })}
