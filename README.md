@@ -1,9 +1,8 @@
 # Home Assistant Whereabouts Card
 
-Custom Lovelace card for Home Assistant to display person locations with contextual activities and customizable presentation.
+A highly customizable Lovelace card that transforms your Home Assistant person tracking into personalized status messages tailored to your preferences. Whether you want detailed tracking ("Working at the Office", "At the gym") or prefer privacy-conscious, vague statuses ("Away", "Out"), it's entirely up to you—display as much or as little detail as you're comfortable with.
 
-<!-- Placeholder for preview image -->
-<!-- <img src="https://raw.githubusercontent.com/Springvar/home-assistant-whereabouts-card/main/card.png" width="35%"> -->
+<img src="https://raw.githubusercontent.com/Springvar/home-assistant-whereabouts-card/main/resources/screenshot_card.png" width="50%">
 
 ## Table of Contents
 
@@ -23,16 +22,23 @@ Custom Lovelace card for Home Assistant to display person locations with context
 
 ## Introduction
 
-The **Whereabouts Card** displays person locations in Home Assistant with rich contextual information. It shows where people are, what they're doing, and presents this information in a customizable format.
+The **Whereabouts Card** goes beyond basic location tracking by giving you complete control over how presence information is displayed. Using **any location sensor, activity tracker, or helper entity** available in your Home Assistant setup, you can create personalized status messages that are as detailed or as simple as you prefer.
+
+**Why Whereabouts Card?**
+- **Infinitely Flexible**: Use any sensor—person entities, device trackers, zone states, calendar events, or custom helpers—to determine and display activities
+- **Activity-Aware**: Combine location data with any other sensor to show rich context—detect "Working at home" vs "Relaxing at home" using work calendar integration, or "At the gym" based on zone + time of day
+- **Truly Personalized**: Craft status messages that match your household's lifestyle and language, from simple tracking ("Home" / "Away") to detailed activities ("Running errands" / "In a meeting" / "At soccer practice")
+- **Your Privacy, Your Choice**: Control the level of detail—from precise tracking for family coordination to intentionally vague statuses for privacy. You decide what to show
+- **Complete Customization**: Every aspect—text templates, icons, colors, conditions—is configurable to match your exact preferences
 
 **Key Features:**
-- **Person Tracking**: Display multiple persons with their current zones
-- **Activity Detection**: Show contextual activities based on sensor states and conditions
-- **Named Sensors**: Define custom sensor mappings per person
-- **Zone Groups**: Group zones together with custom names and icons
-- **Conditional Display**: Show or hide persons based on sensor values
-- **Flexible Templates**: Customize the display format to match different languages and preferences
-- **Icon Precedence**: Control icon display with activity > zone group > zone hierarchy
+- **Universal Sensor Support**: Works with person entities, device trackers, zones, or any custom sensor/helper you create
+- **Smart Activity Detection**: Define activities using flexible condition rules based on multiple sensor states, time ranges, and custom logic
+- **Named Sensors**: Map generic sensor names to person-specific entities for reusable activity definitions
+- **Zone Groups**: Combine multiple zones (like "School", "Soccer Field", "Library") into a single activity ("Out with kids")
+- **Conditional Display**: Dynamically show or hide persons based on any sensor value or condition
+- **Flexible Templates**: Customize display format with full template support for any language or style preference
+- **Icon Hierarchy**: Fine-grained control over icon display with activity > zone group > zone precedence
 
 ## Installation
 
