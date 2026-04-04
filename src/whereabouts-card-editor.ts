@@ -46,6 +46,47 @@ export class WhereaboutsCardEditor extends LitElement {
       });
   }
 
+  isZoneValid(zoneId: string): boolean {
+    if (!this.hass) return false;
+    if (zoneId === 'home') return true;
+    return !!this.hass.states[zoneId];
+  }
+
+  getZoneGroupInvalidZones(group: ZoneGroup): string[] {
+    return group.zones.filter(zid => !this.isZoneValid(zid));
+  }
+
+  hasAnyInvalidZones(): boolean {
+    return (this._config.zone_groups ?? []).some(group =>
+      this.getZoneGroupInvalidZones(group).length > 0
+    );
+  }
+
+  getSensorState(entityId: string | string[]): string {
+    if (!this.hass) return 'unavailable';
+
+    // Handle array of entity IDs
+    if (Array.isArray(entityId)) {
+      const states = entityId.map(id => this.hass.states[id]?.state || 'unknown');
+      return states.join(' | ');
+    }
+
+    return this.hass.states[entityId]?.state || 'unavailable';
+  }
+
+  getSensorFriendlyName(entityId: string | string[]): string {
+    if (!this.hass) return '';
+
+    // Handle array of entity IDs
+    if (Array.isArray(entityId)) {
+      return entityId.map(id =>
+        this.hass.states[id]?.attributes?.friendly_name || id
+      ).join(' / ');
+    }
+
+    return this.hass.states[entityId]?.attributes?.friendly_name || entityId;
+  }
+
   setConfig(config: WhereaboutsCardConfig) {
     this._config = { ...config };
     this._config.zone_groups = (this._config.zone_groups || []).map((zg) => ({
@@ -169,12 +210,13 @@ export class WhereaboutsCardEditor extends LitElement {
       <div>
         ${this._config.persons.map((person, idx) =>
           html`
-            <fieldset style="margin-bottom:1em;">
-              <legend>
+            <details style="margin-bottom:1em; border: 1px solid #ccc; padding: 0.5em; border-radius: 4px;">
+              <summary style="cursor: pointer; font-weight: bold;">
                 ${person.name || this.hass.states[person.entity_id]?.attributes?.friendly_name || person.entity_id}
-                (${person.entity_id})
-                <button @click=${() => this._removePerson(idx)}>Remove Person</button>
-              </legend>
+                <span style="font-weight: normal; color: #666;">(${person.entity_id})</span>
+                <button @click=${(e: Event) => { e.preventDefault(); e.stopPropagation(); this._removePerson(idx); }}>Remove Person</button>
+              </summary>
+              <div style="margin-top: 0.5em;">
               <div>
                 <label>Custom name (optional):</label>
                 <input
@@ -213,6 +255,11 @@ export class WhereaboutsCardEditor extends LitElement {
                           />
                           <button class="icon-button" @click=${() => this._removeNamedSensor(idx, name)} title="Remove">🗑️</button>
                         </div>
+                        ${sensor.entity_id ? html`
+                          <div style="margin-left: 160px; font-size: 0.85em; color: #666; margin-bottom: 0.5em;">
+                            ${this.getSensorFriendlyName(sensor.entity_id)}: <strong>${this.getSensorState(sensor.entity_id)}</strong>
+                          </div>
+                        ` : ''}
                       `)
                     : ''}
                 </div>
@@ -269,7 +316,8 @@ export class WhereaboutsCardEditor extends LitElement {
                 </datalist>
                 <button @click=${() => this._addHideIfCondition(idx)} style="margin-top: 0.5em;">+ Add Condition</button>
               </div>
-            </fieldset>
+              </div>
+            </details>
           `
         )}
       </div>
@@ -285,18 +333,23 @@ export class WhereaboutsCardEditor extends LitElement {
           </p>
           <div>
             ${(this._config.activities ?? []).map((activity, idx) => html`
-              <fieldset style="margin-bottom:1em;">
-                <legend>
+              <details style="margin-bottom:1em; border: 1px solid #ccc; padding: 0.5em; border-radius: 4px;">
+                <summary style="cursor: pointer; font-weight: bold;">
+                  ${activity.activity || activity.verb || `Activity ${idx + 1}`}
+                  ${idx > 0 ? html`<button @click=${(e: Event) => { e.preventDefault(); e.stopPropagation(); this._moveActivityUp(idx); }} title="Move Up">↑</button>` : ''}
+                  ${idx < (this._config.activities?.length ?? 0) - 1 ? html`<button @click=${(e: Event) => { e.preventDefault(); e.stopPropagation(); this._moveActivityDown(idx); }} title="Move Down">↓</button>` : ''}
+                  <button @click=${(e: Event) => { e.preventDefault(); e.stopPropagation(); this._removeActivity(idx); }}>Remove</button>
+                </summary>
+                <div style="margin-top: 0.5em;">
+                <div>
+                  <label>Activity:</label>
                   <input
                     type="text"
                     .value=${activity.activity || activity.verb || ''}
                     @input=${(e: Event) => this._activityChanged(idx, e)}
                     placeholder="Activity (e.g., is gaming)"
                   />
-                  ${idx > 0 ? html`<button @click=${() => this._moveActivityUp(idx)} title="Move Up">↑</button>` : ''}
-                  ${idx < (this._config.activities?.length ?? 0) - 1 ? html`<button @click=${() => this._moveActivityDown(idx)} title="Move Down">↓</button>` : ''}
-                  <button @click=${() => this._removeActivity(idx)}>Remove</button>
-                </legend>
+                </div>
                 <div>
                   <label>Location override (optional):</label>
                   <input
@@ -360,7 +413,8 @@ export class WhereaboutsCardEditor extends LitElement {
                   </div>
                   <button @click=${() => this._addActivityCondition(idx)} style="margin-top: 0.5em;">+ Add Condition</button>
                 </div>
-              </fieldset>
+                </div>
+              </details>
             `)}
           </div>
           <button @click=${this._addActivity} style="margin-top: 0.5em;">Add Activity</button>
@@ -369,17 +423,29 @@ export class WhereaboutsCardEditor extends LitElement {
 
       <!-- ZONE GROUPS (Optional) -->
       <details>
-        <summary><h3 style="display: inline;">Zone Groups (Optional)</h3></summary>
+        <summary>
+          <h3 style="display: inline;">Zone Groups (Optional)</h3>
+          ${this.hasAnyInvalidZones() ? html`<span style="color: #ff9800; font-size: 1.2em; margin-left: 0.5em;" title="Some zones are missing">⚠️</span>` : ''}
+        </summary>
         <div style="margin-left: 1em;">
           <div>
         <label>Zone Groups:</label>
         <div>
-          ${(this._config.zone_groups ?? []).map((group: ZoneGroup, gidx: number) => html`
-            <fieldset style="margin-bottom:1em;">
-              <legend>
+          ${(this._config.zone_groups ?? []).map((group: ZoneGroup, gidx: number) => {
+            const invalidZones = this.getZoneGroupInvalidZones(group);
+            const hasInvalidZones = invalidZones.length > 0;
+            return html`
+            <details style="margin-bottom:1em; border: 1px solid #ccc; padding: 0.5em; border-radius: 4px;">
+              <summary style="cursor: pointer; font-weight: bold;">
+                ${group.name || `Zone Group ${gidx + 1}`}
+                ${hasInvalidZones ? html`<span style="color: #ff9800; font-size: 1.2em; margin-left: 0.5em;" title="Contains invalid zones: ${invalidZones.join(', ')}">⚠️</span>` : ''}
+                <button @click=${(e: Event) => { e.preventDefault(); e.stopPropagation(); this._removeZoneGroup(gidx); }} style="margin-left: 1em;">Remove Group</button>
+              </summary>
+              <div style="margin-top: 0.5em;">
+              <div>
+                <label>Group Name:</label>
                 <input type="text" .value=${group.name ?? ''} @input=${(e: Event) => this._zoneGroupNameChanged(gidx, e)} placeholder="Group Name (optional)" />
-                <button @click=${() => this._removeZoneGroup(gidx)}>Remove Group</button>
-              </legend>
+              </div>
               <div>
                 <label>
                   <input type="checkbox"
@@ -434,17 +500,23 @@ export class WhereaboutsCardEditor extends LitElement {
                       const bname = this.hass.states[b]?.attributes?.friendly_name || (b === 'home' ? 'Home' : b);
                       return aname.localeCompare(bname);
                     })
-                    .map(zid => html`
+                    .map(zid => {
+                      const isValid = this.isZoneValid(zid);
+                      return html`
               <li>
+                        ${!isValid ? html`<span style="color: #ff9800; margin-right: 0.5em;" title="Zone not found">⚠️</span>` : ''}
                         ${this.hass.states[zid]?.attributes?.friendly_name || (zid === 'home' ? 'Home' : zid)}
+                        ${!isValid ? html`<span style="color: #999; font-size: 0.9em; margin-left: 0.5em;">(${zid})</span>` : ''}
                         <button @click=${() => this._removeZoneFromGroup(gidx, group.zones.indexOf(zid))}>Remove</button>
               </li>
-                    `)
+                    `;
+                    })
   }
                 </ul>
               </div>
-            </fieldset>
-          `)}
+              </div>
+            </details>
+          `;})}
         </div>
         <button @click=${this._addZoneGroup} style="margin-top: 0.5em;">Add group</button>
         </div>
