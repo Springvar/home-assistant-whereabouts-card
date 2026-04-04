@@ -187,14 +187,34 @@ Conditions are evaluated against the person's named sensors. All conditions must
 
 ```yaml
 conditions:
-  activity: "working"              # Match sensor value
+  activity: "working"              # Match sensor state
   confidence: ">80"                # Numeric comparison
   status: ["active", "busy"]       # Match any in array
   timer: "!=idle"                  # Not equal comparison
   override: "!"                    # Boolean false check
+  discord.game: "Counter-Strike"   # Match sensor attribute (dot notation)
+  steam.last_online: "!"           # Check if attribute is not falsy
   when: ["morning", "weekday"]     # Match multiple time periods (OR logic)
   who: ["person.john", "John"]     # Special: match person
   where: ["work", "zone.office"]   # Special: match zone or zone group
+```
+
+**Sensor State vs Attributes:**
+
+Conditions can check either the sensor's **state** or its **attributes** using dot notation:
+- `sensorName: "value"` - Checks the sensor's state
+- `sensorName.attribute: "value"` - Checks a sensor attribute
+- `sensorName.nested.path: "value"` - Checks nested attributes
+
+Example with Discord gaming sensor:
+```yaml
+namedSensors:
+  discord:
+    entity_id: sensor.discord_user_123456789
+
+conditions:
+  discord.game: "!=null"           # Check if game attribute is not null
+  discord.activity_state: "playing" # Check activity_state attribute
 ```
 
 **Special Condition Keys:**

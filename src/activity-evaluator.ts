@@ -45,6 +45,13 @@ function getCurrentDay(): string {
 }
 
 /**
+ * Get nested attribute value from object using dot notation
+ */
+function getNestedAttribute(obj: any, path: string): any {
+    return path.split('.').reduce((current, key) => current?.[key], obj);
+}
+
+/**
  * Check if current time matches a "when" period (night, morning, weekday, etc.)
  */
 function matchesWhenPeriod(period: string): boolean {
@@ -170,8 +177,18 @@ export class ActivityEvaluator {
             return this.evaluateUser(expectedValue);
         }
 
+        // Check if key contains dot notation for attribute access (e.g., "discord.game")
+        let sensorKey = key;
+        let attributePath: string | undefined;
+
+        if (key.includes('.')) {
+            const parts = key.split('.');
+            sensorKey = parts[0];
+            attributePath = parts.slice(1).join('.');
+        }
+
         // Look up the sensor in the person's namedSensors
-        const sensor = this.person.namedSensors?.[key];
+        const sensor = this.person.namedSensors?.[sensorKey];
         if (!sensor) {
             return false; // Sensor not defined for this person
         }
@@ -184,10 +201,20 @@ export class ActivityEvaluator {
             const entity = this.hass.states[entityId];
             if (!entity) continue;
 
-            const actualValue = entity.state;
+            // Get value from state or attribute
+            let actualValue: any;
+            if (attributePath) {
+                // Access nested attribute
+                actualValue = getNestedAttribute(entity.attributes, attributePath);
+            } else {
+                actualValue = entity.state;
+            }
+
+            // Convert to string for comparison (handle null/undefined)
+            const actualValueStr = actualValue == null ? '' : String(actualValue);
 
             // Evaluate the condition with operator support
-            if (this.matchesValue(actualValue, expectedValue)) {
+            if (this.matchesValue(actualValueStr, expectedValue)) {
                 return true;
             }
         }
