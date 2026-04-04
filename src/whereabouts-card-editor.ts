@@ -312,20 +312,34 @@ export class WhereaboutsCardEditor extends LitElement {
                 <input type="text" .value=${group.name ?? ''} @input=${(e: Event) => this._zoneGroupNameChanged(gidx, e)} placeholder="Group Name (optional)" />
                 <button @click=${() => this._removeZoneGroup(gidx)}>Remove Group</button>
               </legend>
-              <label>
-                <input type="checkbox"
-                  .checked=${group.show_preposition !== false}
-                  @change=${(e: Event) => this._zoneGroupShowPrepositionChanged(gidx, e)}/>
-                Show preposition
-              </label>
-              <label>
-                Preposition:
-                <input type="text" .value=${group.preposition ?? ''} @input=${(e: Event) => this._zoneGroupPrepositionChanged(gidx, e)} placeholder="(optional, e.g., at)" />
-              </label>
-              <label>
-                Icon:
-                <input type="text" .value=${group.icon ?? ''} @input=${(e: Event) => this._zoneGroupIconChanged(gidx, e)} placeholder="(optional, e.g., mdi:home)" list="icon-suggestions" />
-              </label>
+              <div>
+                <label>
+                  <input type="checkbox"
+                    .checked=${group.show_preposition !== false}
+                    @change=${(e: Event) => this._zoneGroupShowPrepositionChanged(gidx, e)}/>
+                  Show preposition
+                </label>
+              </div>
+              <div>
+                <label>
+                  <input type="checkbox"
+                    .checked=${group.override_location !== false}
+                    @change=${(e: Event) => this._zoneGroupOverrideLocationChanged(gidx, e)}/>
+                  Override location name with group name
+                </label>
+              </div>
+              <div>
+                <label>
+                  Preposition:
+                  <input type="text" .value=${group.preposition ?? ''} @input=${(e: Event) => this._zoneGroupPrepositionChanged(gidx, e)} placeholder="(optional, e.g., at)" />
+                </label>
+              </div>
+              <div>
+                <label>
+                  Icon:
+                  <input type="text" .value=${group.icon ?? ''} @input=${(e: Event) => this._zoneGroupIconChanged(gidx, e)} placeholder="(optional, e.g., mdi:home)" list="icon-suggestions" />
+                </label>
+              </div>
               <div>
                 <label>Add zone:</label>
                 <select @change=${(e: Event) => this._addZoneToGroup(gidx, e)}>
@@ -695,6 +709,15 @@ export class WhereaboutsCardEditor extends LitElement {
     const checked = (e.target as HTMLInputElement).checked;
     const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
     groups[gidx] = { ...groups[gidx], show_preposition: checked };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _zoneGroupOverrideLocationChanged(gidx: number, e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    groups[gidx] = { ...groups[gidx], override_location: checked };
     this._config = { ...this._config, zone_groups: groups };
     this.requestUpdate();
     this._emitConfigChanged();

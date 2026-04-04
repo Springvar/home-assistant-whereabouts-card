@@ -224,6 +224,9 @@ zone_groups:
 | `icon` | Icon for zones in this group | `undefined` | String (mdi:icon-name) |
 | `preposition` | Custom preposition for this group | Card's default_preposition | String |
 | `show_preposition` | Show preposition before location | `true` | Boolean |
+| `override_location` | Replace zone name with group name | `true` | Boolean |
+
+**Note:** Set `override_location: false` to keep the original zone names while still applying the group's preposition and icon. This is useful when you want to group zones for preposition/icon consistency without losing the specific zone names (e.g., "Office", "Laboratory" both use "at" preposition and work icon, but keep their individual names).
 
 **Icon Precedence:**
 1. Activity icon (if activity detected)

@@ -15,6 +15,7 @@ export interface ZoneGroup {
     zones: string[];
     preposition?: string;
     show_preposition?: boolean;
+    override_location?: boolean;
     icon?: string;
 }
 
@@ -190,7 +191,7 @@ class WhereaboutsCard extends LitElement {
                                 if (group.zones.includes(zoneEntityId) || group.zones.includes(personState)) {
                                     showPreposition = group.show_preposition !== false;
                                     if (group.preposition) usedPreposition = group.preposition;
-                                    if (group.name) zoneNameOverride = group.name;
+                                    if (group.name && group.override_location !== false) zoneNameOverride = group.name;
                                     if (group.icon) zoneGroupIcon = group.icon;
                                     break;
                                 }
