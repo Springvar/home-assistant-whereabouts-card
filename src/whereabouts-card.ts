@@ -342,15 +342,15 @@ class WhereaboutsCard extends LitElement {
             border-left: 3px solid var(--primary-color);
             background: var(--card-background-color, #fff);
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             gap: 12px;
         }
         .person-avatar-column {
             flex-shrink: 0;
         }
         .person-avatar {
-            width: 48px;
-            height: 48px;
+            width: 38px;
+            height: 38px;
             border-radius: 50%;
             object-fit: cover;
         }
