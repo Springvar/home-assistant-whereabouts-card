@@ -161,6 +161,7 @@ activities:
   - activity: "is working"
     icon: "mdi:briefcase"
     location_override: "-"
+    show_preposition: false
     conditions:
       activity: "working"
       where: "work"
@@ -178,7 +179,7 @@ activities:
 | `conditions` | Conditions that must match | **Required** | Object with condition key-value pairs |
 | `icon` | Icon override for this activity | `undefined` | String (mdi:icon-name) |
 | `location_override` | Custom location text, or "-" to hide location | `undefined` | String |
-| `show_preposition` | Override zone group's show_preposition setting | `undefined` | Boolean |
+| `show_preposition` | Control preposition display: `true` = always show, `false` = always hide, `undefined` = inherit from zone group | `undefined` | Boolean or undefined |
 
 **Activity Conditions:**
 
@@ -363,6 +364,7 @@ activities:
   - activity: "is working"
     icon: "mdi:briefcase"
     location_override: "-"
+    show_preposition: false
     conditions:
       activity: "working"
   - activity: "is sleeping"
@@ -425,12 +427,14 @@ activities:
   # Show "You are..." for the current user
   - activity: "are working"
     icon: "mdi:briefcase"
+    show_preposition: false
     conditions:
       user: "person.john"  # Or user ID or name
       activity: "working"
   # Show "is working" for others
   - activity: "is working"
     icon: "mdi:briefcase"
+    show_preposition: false
     conditions:
       activity: "working"
 ```
@@ -449,6 +453,7 @@ activities:
   - activity: "is working at the office"
     icon: "mdi:briefcase-clock"
     location_override: "-"
+    show_preposition: false
     conditions:
       is_work_hours: "true"
       where: "work"

@@ -140,6 +140,7 @@ describe('ActivityEvaluator', () => {
         const person: PersonConfig = { entity_id: 'person.john' };
         const activities: Activity[] = [{
             activity: 'is working',
+            show_preposition: false,
             conditions: { where: 'zone.office' }
         }];
         const evaluator = new ActivityEvaluator(hass, person, activities, []);
@@ -155,6 +156,7 @@ describe('ActivityEvaluator', () => {
         const person: PersonConfig = { entity_id: 'person.john' };
         const activities: Activity[] = [{
             activity: 'is working',
+            show_preposition: false,
             conditions: { where: 'office' }
         }];
         const evaluator = new ActivityEvaluator(hass, person, activities, []);
@@ -170,6 +172,7 @@ describe('ActivityEvaluator', () => {
         const person: PersonConfig = { entity_id: 'person.john' };
         const activities: Activity[] = [{
             activity: 'is working',
+            show_preposition: false,
             conditions: { where: 'Office' }
         }];
         const evaluator = new ActivityEvaluator(hass, person, activities, []);
@@ -189,6 +192,7 @@ describe('ActivityEvaluator', () => {
         }];
         const activities: Activity[] = [{
             activity: 'is working',
+            show_preposition: false,
             conditions: { where: 'work' }
         }];
         const evaluator = new ActivityEvaluator(hass, person, activities, zoneGroups);
@@ -302,6 +306,7 @@ describe('ActivityEvaluator', () => {
         };
         const activities: Activity[] = [{
             activity: 'is working',
+            show_preposition: false,
             conditions: { activity: 'working' }
         }];
         const evaluator = new ActivityEvaluator(hass, person, activities, []);
@@ -316,6 +321,7 @@ describe('ActivityEvaluator', () => {
         const person: PersonConfig = { entity_id: 'person.john' };
         const activities: Activity[] = [{
             activity: 'is working',
+            show_preposition: false,
             conditions: { activity: 'working' }
         }];
         const evaluator = new ActivityEvaluator(hass, person, activities, []);
