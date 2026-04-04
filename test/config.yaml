@@ -18,16 +18,17 @@ persons:
       visibility: "hidden"
 show_title: true
 title: Whereabouts Test
-default_verb: is
+default_activity: is
 default_preposition: at
 activities:
-  - verb: "is working"
+  - activity: "is working"
     location_override: "-"
+    show_preposition: false
     icon: "mdi:briefcase"
     conditions:
       activity: "working"
       where: "work"
-  - verb: "is gaming"
+  - activity: "is gaming"
     show_preposition: true
     icon: "mdi:gamepad"
     conditions:
