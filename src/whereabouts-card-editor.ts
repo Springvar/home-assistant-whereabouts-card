@@ -154,7 +154,7 @@ export class WhereaboutsCardEditor extends LitElement {
       </div>
 
       <!-- PERSONS SECTION -->
-      <details open>
+      <details ?open=${this._config.persons.length === 0}>
         <summary><h3 style="display: inline;">Persons</h3></summary>
         <div style="margin-left: 1em;">
       <div>
@@ -275,7 +275,6 @@ export class WhereaboutsCardEditor extends LitElement {
           <p style="font-size: 0.9em; color: #666; margin-bottom: 0.5em;">
             Define general activities that apply to persons based on their sensor values.
           </p>
-          <button @click=${this._addActivity}>Add Activity</button>
           <div>
             ${(this._config.activities ?? []).map((activity, idx) => html`
               <fieldset style="margin-bottom:1em;">
@@ -355,6 +354,7 @@ export class WhereaboutsCardEditor extends LitElement {
               </fieldset>
             `)}
           </div>
+          <button @click=${this._addActivity} style="margin-top: 0.5em;">Add Activity</button>
         </div>
       </details>
 
@@ -364,7 +364,6 @@ export class WhereaboutsCardEditor extends LitElement {
         <div style="margin-left: 1em;">
           <div>
         <label>Zone Groups:</label>
-        <button @click=${this._addZoneGroup}>Add group</button>
         <div>
           ${(this._config.zone_groups ?? []).map((group: ZoneGroup, gidx: number) => html`
             <fieldset style="margin-bottom:1em;">
@@ -438,6 +437,7 @@ export class WhereaboutsCardEditor extends LitElement {
             </fieldset>
           `)}
         </div>
+        <button @click=${this._addZoneGroup} style="margin-top: 0.5em;">Add group</button>
         </div>
       </details>
 
