@@ -108,8 +108,9 @@ export class ActivityEvaluator {
     evaluate(): EvaluatedActivity | null {
         for (const activity of this.activities) {
             if (this.evaluateActivity(activity)) {
+                const activityText = activity.activity || activity.verb || '';
                 return {
-                    activity: activity.activity || activity.verb || '', // Support both new and legacy field names
+                    activity: this.replacePlaceholders(activityText),
                     location_override: activity.location_override,
                     show_preposition: activity.show_preposition,
                     icon: activity.icon
@@ -117,6 +118,47 @@ export class ActivityEvaluator {
             }
         }
         return null;
+    }
+
+    /**
+     * Replace {sensorName} or {sensorName.attribute} placeholders with actual values
+     */
+    private replacePlaceholders(text: string): string {
+        return text.replace(/\{([^}]+)\}/g, (match, key) => {
+            // Check if key contains dot notation for attribute access
+            let sensorKey = key;
+            let attributePath: string | undefined;
+
+            if (key.includes('.')) {
+                const parts = key.split('.');
+                sensorKey = parts[0];
+                attributePath = parts.slice(1).join('.');
+            }
+
+            // Look up the sensor
+            const sensor = this.person.namedSensors?.[sensorKey];
+            if (!sensor) {
+                return match; // Keep placeholder if sensor not found
+            }
+
+            // Get entity ID (use first if array)
+            const entityId = Array.isArray(sensor.entity_id) ? sensor.entity_id[0] : sensor.entity_id;
+            const entity = this.hass.states[entityId];
+            if (!entity) {
+                return match; // Keep placeholder if entity not found
+            }
+
+            // Get value from state or attribute
+            let value: any;
+            if (attributePath) {
+                value = getNestedAttribute(entity.attributes, attributePath);
+            } else {
+                value = entity.state;
+            }
+
+            // Return value as string, or keep placeholder if null/undefined
+            return value != null ? String(value) : match;
+        });
     }
 
     private evaluateActivity(activity: Activity): boolean {

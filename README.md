@@ -242,7 +242,7 @@ Supported operators: `>`, `<`, `>=`, `<=`, `=`, `!=`, `<>`
 
 **Sensor Placeholders in Activity Text:**
 
-You can use `{sensorName}` placeholders in activity text to dynamically set the displayed text from a sensor value:
+You can use `{sensorName}` or `{sensorName.attribute}` placeholders in activity text to dynamically insert sensor values:
 
 ```yaml
 persons:
@@ -250,15 +250,32 @@ persons:
     namedSensors:
       activity:
         entity_id: sensor.john_activity_override
-      override:
-        entity_id: sensor.john_activity_timer
+      discord:
+        entity_id: sensor.discord_user_123456789
+      spotify:
+        entity_id: sensor.john_spotify
 activities:
   - activity: "{activity}"
     conditions:
-      override: "!=idle"
+      activity: "!"
+  
+  - activity: "spiller {discord.game}"
+    icon: "mdi:gamepad"
+    conditions:
+      discord.game: "!"
+  
+  - activity: "hører på {spotify.artist} - {spotify.title}"
+    icon: "mdi:spotify"
+    conditions:
+      spotify.title: "!"
 ```
 
-When the condition matches, the activity text will be replaced with the current state of the `activity` sensor. For example, if `sensor.john_activity_override` has state "is exercising", that text will be displayed instead of the placeholder.
+Placeholders are replaced with actual sensor values:
+- `{activity}` - Replaced with the sensor's state (e.g., "is exercising")
+- `{discord.game}` - Replaced with the game attribute (e.g., "Counter-Strike")
+- `{spotify.artist}` - Replaced with nested attribute values
+
+If a sensor or attribute is not found or is null, the placeholder remains unchanged.
 
 #### Zone Groups Configuration
 
