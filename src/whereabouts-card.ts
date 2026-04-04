@@ -151,6 +151,11 @@ class WhereaboutsCard extends LitElement {
                         if (this.activities && this.activities.length > 0) {
                             const evaluator = new ActivityEvaluator(this.hass, person, this.activities, this.zone_groups);
                             evaluatedActivity = evaluator.evaluate();
+
+                            // Resolve sensor placeholders in verb
+                            if (evaluatedActivity) {
+                                evaluatedActivity.verb = this.resolveSensorPlaceholders(evaluatedActivity.verb, person);
+                            }
                         }
 
                         // Fall back to person-specific activity rules if no general activity matched
@@ -257,6 +262,24 @@ class WhereaboutsCard extends LitElement {
                 </div>
             </ha-card>
         `;
+    }
+
+    private resolveSensorPlaceholders(text: string, person: PersonConfig): string {
+        if (!text || !person.namedSensors) return text;
+
+        // Find all {placeholder} patterns
+        return text.replace(/\{(\w+)\}/g, (match, sensorName) => {
+            const sensor = person.namedSensors?.[sensorName];
+            if (!sensor) return match; // Keep placeholder if sensor not found
+
+            // Get the first entity_id (if array, use first one)
+            const entityId = Array.isArray(sensor.entity_id) ? sensor.entity_id[0] : sensor.entity_id;
+            const entity = this.hass.states[entityId];
+
+            if (!entity) return match; // Keep placeholder if entity not found
+
+            return entity.state || match;
+        });
     }
 
     private renderTemplate(template: string, variables: { [key: string]: string }) {

@@ -168,7 +168,7 @@ activities:
 
 | Name | Description | Default Value | Constraints |
 | ---- | ----------- | ------------- | ----------- |
-| `verb` | Activity verb to display | **Required** | String |
+| `verb` | Activity verb to display. Supports sensor placeholders like `{sensorName}` | **Required** | String |
 | `conditions` | Conditions that must match | **Required** | Object with condition key-value pairs |
 | `icon` | Icon override for this activity | `undefined` | String (mdi:icon-name) |
 | `location_override` | Custom location text, or "-" to hide location | `undefined` | String |
@@ -195,6 +195,26 @@ conditions:
 Supported operators: `>`, `<`, `>=`, `<=`, `=`, `<>`
 
 **Activities are evaluated top-to-bottom** and the first matching activity is used.
+
+**Sensor Placeholders in Activity Verbs:**
+
+You can use `{sensorName}` placeholders in activity verbs to dynamically set the displayed text from a sensor value:
+
+```yaml
+persons:
+  - entity_id: person.john
+    namedSensors:
+      activity:
+        entity_id: sensor.john_activity_override
+      override:
+        entity_id: sensor.john_activity_timer
+activities:
+  - verb: "{activity}"
+    conditions:
+      override: ">0"
+```
+
+When the condition matches, the verb will be replaced with the current state of the `activity` sensor. For example, if `sensor.john_activity_override` has state "is exercising", that text will be displayed instead of the placeholder.
 
 #### Zone Groups Configuration
 
