@@ -30,6 +30,22 @@ export interface WhereaboutsCardConfig {
     activities?: Activity[];
     zone_groups?: ZoneGroup[];
     template?: string; // Template for display (default: "{name} {activity} {-preposition} {-location} <right {icon}>")
+    // Style customization
+    style?: {
+        container_margin?: string;
+        container_padding?: string;
+        container_gap?: string;
+        border_width?: string;
+        border_style?: string;
+        border_color?: string;
+        avatar_size?: string;
+        location_font_size?: string;
+        activity_font_size?: string;
+        location_icon_size?: string;
+        location_icon_color?: string;
+        activity_icon_size?: string;
+        activity_icon_color?: string;
+    };
 }
 
 class WhereaboutsCard extends LitElement {
@@ -59,6 +75,9 @@ class WhereaboutsCard extends LitElement {
 
     @property({ type: String })
     declare template: string;
+
+    @property({ type: Object })
+    declare config: WhereaboutsCardConfig;
 
     @property({ attribute: false })
     declare hass: any;
@@ -104,6 +123,9 @@ class WhereaboutsCard extends LitElement {
     }
 
     setConfig(config: WhereaboutsCardConfig) {
+        // Store the full config
+        this.config = config;
+
         // Initialize with defaults if not set
         if (!this.persons) this.persons = [];
         if (this.show_title === undefined) this.show_title = true;
@@ -239,21 +261,47 @@ class WhereaboutsCard extends LitElement {
 
                         const avatarUrl = entity.attributes?.entity_picture || '';
 
+                        // Apply custom styles
+                        const containerStyle = this.config.style ? [
+                            this.config.style.container_margin && `margin: ${this.config.style.container_margin}`,
+                            this.config.style.container_padding && `padding: ${this.config.style.container_padding}`,
+                            this.config.style.container_gap && `gap: ${this.config.style.container_gap}`,
+                            this.config.style.border_width && `border-left-width: ${this.config.style.border_width}`,
+                            this.config.style.border_style && `border-left-style: ${this.config.style.border_style}`,
+                            this.config.style.border_color && `border-left-color: ${this.config.style.border_color}`,
+                        ].filter(Boolean).join('; ') : '';
+
+                        const avatarStyle = this.config.style?.avatar_size
+                            ? `width: ${this.config.style.avatar_size}; height: ${this.config.style.avatar_size};`
+                            : '';
+
+                        const locationStyle = this.config.style?.location_font_size
+                            ? `font-size: ${this.config.style.location_font_size};`
+                            : '';
+
+                        const activityStyle = this.config.style?.activity_font_size
+                            ? `font-size: ${this.config.style.activity_font_size};`
+                            : '';
+
+                        const activityIconStyle = this.config.style?.activity_icon_size
+                            ? `--mdc-icon-size: ${this.config.style.activity_icon_size};`
+                            : '';
+
                         return html`
-                            <div class="person-container">
+                            <div class="person-container" style="${containerStyle}">
                                 ${this.show_avatars && avatarUrl ? html`
                                     <div class="person-avatar-column">
-                                        <img src="${avatarUrl}" class="person-avatar" />
+                                        <img src="${avatarUrl}" class="person-avatar" style="${avatarStyle}" />
                                     </div>
                                 ` : ''}
                                 <div class="person-content">
-                                    <div class="person-location">
+                                    <div class="person-location" style="${locationStyle}">
                                         ${rendered}
                                     </div>
                                     ${calculatedActivity
                                         ? html`
-                                              <div class="person-activity">
-                                                  <ha-icon icon="${calculatedActivity.icon}"></ha-icon>
+                                              <div class="person-activity" style="${activityStyle}">
+                                                  <ha-icon icon="${calculatedActivity.icon}" style="${activityIconStyle}"></ha-icon>
                                                   <span>${calculatedActivity.text}</span>
                                               </div>
                                           `
@@ -334,8 +382,12 @@ class WhereaboutsCard extends LitElement {
                     rendered.push(html`${beforeText}`);
                 }
 
-                // Add the icon element
-                rendered.push(html`<ha-icon icon="${variables.icon}"></ha-icon>`);
+                // Add the icon element with custom styling
+                const locationIconStyle = [
+                    this.config.style?.location_icon_size && `--mdc-icon-size: ${this.config.style.location_icon_size}`,
+                    this.config.style?.location_icon_color && `color: ${this.config.style.location_icon_color}`,
+                ].filter(Boolean).join('; ');
+                rendered.push(html`<ha-icon icon="${variables.icon}" style="${locationIconStyle}"></ha-icon>`);
                 current = current.substring(iconIndex + 6); // length of '{icon}'
             }
 

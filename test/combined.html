@@ -5,6 +5,53 @@
         <title>Whereabouts Card + Editor Demo</title>
         <script type="module" src="/src/whereabouts-card.ts"></script>
         <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+        <script>
+            // Simple ha-icon polyfill using inline SVG
+            class HaIcon extends HTMLElement {
+                static get observedAttributes() {
+                    return ['icon'];
+                }
+
+                connectedCallback() {
+                    this.style.display = 'inline-flex';
+                    this.style.alignItems = 'center';
+                    this.style.justifyContent = 'center';
+                    this.render();
+                }
+
+                attributeChangedCallback() {
+                    this.render();
+                }
+
+                async render() {
+                    const icon = this.getAttribute('icon');
+                    if (icon && icon.startsWith('mdi:')) {
+                        const iconName = icon.replace('mdi:', '');
+                        const computedStyle = window.getComputedStyle(this);
+                        const size = computedStyle.getPropertyValue('--mdc-icon-size').trim() || '24px';
+                        const color = computedStyle.color || 'currentColor';
+
+                        // Fetch SVG from Iconify API
+                        try {
+                            const response = await fetch(`https://api.iconify.design/mdi/${iconName}.svg?color=${encodeURIComponent(color)}&width=${size}&height=${size}`);
+                            if (response.ok) {
+                                const svg = await response.text();
+                                this.innerHTML = svg;
+                            } else {
+                                // Fallback to emoji
+                                this.innerHTML = `<span style="font-size: ${size};">❓</span>`;
+                            }
+                        } catch (e) {
+                            this.innerHTML = `<span style="font-size: ${size};">❓</span>`;
+                        }
+                    }
+                }
+            }
+
+            if (!customElements.get('ha-icon')) {
+                customElements.define('ha-icon', HaIcon);
+            }
+        </script>
         <style>
             :root {
                 --primary-color: #03a9f4;
@@ -80,72 +127,74 @@
         <script>
             const dummyHass = {
                 states: {
-                    'person.jane': {
+                    'person.john_doe': {
                         state: 'office',
                         attributes: {
-                            friendly_name: 'Jane Doe',
+                            friendly_name: 'John Doe',
+                            entity_picture: 'https://i.pravatar.cc/150?img=12',
                             latitude: 63.4305,
                             longitude: 10.3951
                         }
                     },
-                    'person.john': {
+                    'person.jane_doe': {
                         state: 'home',
                         attributes: {
-                            friendly_name: 'John Smith',
+                            friendly_name: 'Jane Doe',
+                            entity_picture: 'https://i.pravatar.cc/150?img=45',
                             latitude: 63.4041,
                             longitude: 10.4301
                         }
                     },
-                    'person.alice': {
-                        state: 'laboratory',
+                    'person.jimmy_doe': {
+                        state: 'school',
                         attributes: {
-                            friendly_name: 'Alice Johnson',
+                            friendly_name: 'Jimmy Doe',
+                            entity_picture: 'https://i.pravatar.cc/150?img=8',
                             latitude: 63.4200,
                             longitude: 10.4000
                         }
                     },
-                    'person.jim': {
-                        state: 'home',
+                    'person.jenny_doe': {
+                        state: 'gym',
                         attributes: {
-                            friendly_name: 'Jim Incognito',
-                            latitude: 63.4041,
-                            longitude: 10.4301
+                            friendly_name: 'Jenny Doe',
+                            entity_picture: 'https://i.pravatar.cc/150?img=9',
+                            latitude: 63.4150,
+                            longitude: 10.4100
                         }
                     },
-                    'sensor.jane_activity': {
-                        state: 'working',
+                    'person.joey_doe': {
+                        state: 'unknown',
                         attributes: {
-                            friendly_name: 'Jane Activity'
-                        }
-                    },
-                    'sensor.john_activity': {
-                        state: 'gaming',
-                        attributes: {
-                            friendly_name: 'John Activity'
-                        }
-                    },
-                    'sensor.jim_visibility': {
-                        state: 'hidden',
-                        attributes: {
-                            friendly_name: 'Jim Visibility'
+                            friendly_name: 'Joey Doe',
+                            entity_picture: 'https://placedog.net/150/150?random=1'
                         }
                     },
                     'zone.office': {
                         state: 'zoning',
                         attributes: {
-                            friendly_name: 'Main Office',
+                            friendly_name: 'Office',
                             latitude: 63.4305,
                             longitude: 10.3951,
                             radius: 100
                         }
                     },
-                    'zone.laboratory': {
+                    'zone.school': {
                         state: 'zoning',
                         attributes: {
-                            friendly_name: 'Lab',
+                            friendly_name: 'School',
                             latitude: 63.4200,
                             longitude: 10.4000,
                             radius: 50
+                        }
+                    },
+                    'zone.gym': {
+                        state: 'zoning',
+                        attributes: {
+                            friendly_name: 'Gym',
+                            latitude: 63.4150,
+                            longitude: 10.4100,
+                            radius: 75
                         }
                     },
                     'zone.home': {
@@ -156,23 +205,119 @@
                             longitude: 10.4301,
                             radius: 100
                         }
+                    },
+                    'zone.doghouse': {
+                        state: 'zoning',
+                        attributes: {
+                            friendly_name: 'Dog House',
+                            latitude: 63.4041,
+                            longitude: 10.4301,
+                            radius: 5,
+                            icon: 'mdi:dog-side'
+                        }
+                    },
+                    'binary_sensor.joey_in_doghouse': {
+                        state: 'on',
+                        attributes: {
+                            friendly_name: 'Joey in Dog House'
+                        }
+                    },
+                    'sensor.john_detected_activity': {
+                        state: 'still',
+                        attributes: {
+                            friendly_name: 'John Detected Activity'
+                        }
+                    },
+                    'sensor.jane_detected_activity': {
+                        state: 'still',
+                        attributes: {
+                            friendly_name: 'Jane Detected Activity'
+                        }
+                    },
+                    'sensor.jimmy_detected_activity': {
+                        state: 'sleeping',
+                        attributes: {
+                            friendly_name: 'Jimmy Detected Activity'
+                        }
+                    },
+                    'sensor.jenny_detected_activity': {
+                        state: 'running',
+                        attributes: {
+                            friendly_name: 'Jenny Detected Activity'
+                        }
                     }
                 }
             };
 
-            function getConfigFile() {
-                const params = new URLSearchParams(window.location.search);
-                const cfgName = params.get('config');
-                return cfgName ? `${cfgName}.yaml` : 'config.yaml';
-            }
+            const cardConfig = {
+                type: 'custom:whereabouts-card',
+                persons: [
+                    {
+                        entity_id: 'person.john_doe',
+                        namedSensors: {
+                            detected_activity: { entity_id: 'sensor.john_detected_activity' }
+                        }
+                    },
+                    {
+                        entity_id: 'person.jane_doe',
+                        namedSensors: {
+                            detected_activity: { entity_id: 'sensor.jane_detected_activity' }
+                        }
+                    },
+                    {
+                        entity_id: 'person.jimmy_doe',
+                        namedSensors: {
+                            detected_activity: { entity_id: 'sensor.jimmy_detected_activity' }
+                        }
+                    },
+                    {
+                        entity_id: 'person.jenny_doe',
+                        namedSensors: {
+                            detected_activity: { entity_id: 'sensor.jenny_detected_activity' }
+                        }
+                    },
+                    {
+                        entity_id: 'person.joey_doe',
+                        name: 'Joey (the dog)',
+                        namedSensors: {
+                            in_doghouse: { entity_id: 'binary_sensor.joey_in_doghouse' }
+                        }
+                    }
+                ],
+                show_title: true,
+                title: 'The Does Family',
+                show_avatars: true,
+                default_activity: 'is',
+                default_preposition: 'at',
+                zone_groups: [
+                    { name: 'home', zones: ['zone.home'], show_preposition: false },
+                    { zones: ['zone.office', 'zone.gym'], preposition: 'at the' },
+                    { zones: ['zone.doghouse'], preposition: 'near the' }
+                ],
+                activities: [
+                    {
+                        activity: 'sleeping',
+                        conditions: {
+                            who: 'person.joey_doe',
+                            in_doghouse: 'on'
+                        },
+                        location_override: 'in the dog house',
+                        icon: 'mdi:sleep'
+                    },
+                    {
+                        activity: 'is working out',
+                        conditions: {
+                            where: 'gym',
+                            detected_activity: 'running'
+                        },
+                        icon: 'mdi:dumbbell'
+                    }
+                ],
+                template: '{name} {activity} {-preposition} {-location} <right {icon}>'
+            };
 
             async function initComponents() {
                 try {
-                    const resp = await fetch(getConfigFile());
-                    if (!resp.ok) throw new Error("Config file not found");
-                    const yamlSource = await resp.text();
-                    const cardConfig = window.jsyaml.load(yamlSource);
-
                     await window.customElements.whenDefined('whereabouts-card');
                     await window.customElements.whenDefined('whereabouts-card-editor');
 

@@ -264,33 +264,6 @@ export class WhereaboutsCardEditor extends LitElement {
       <!-- CARD SETTINGS -->
       <h3>Card Settings</h3>
       <div>
-        <label>
-          <input
-            type="checkbox"
-            .checked=${this._config.show_title !== false}
-            @change=${this._toggleShowTitle}
-          />
-          Show title
-        </label>
-        <input
-          type="text"
-          placeholder="Card Title"
-          .value=${this._config.title ?? 'Whereabouts'}
-          ?disabled=${this._config.show_title === false}
-          @input=${this._titleChanged}
-        />
-      </div>
-      <div>
-        <label>
-          <input
-            type="checkbox"
-            .checked=${this._config.show_avatars === true}
-            @change=${this._toggleShowAvatars}
-          />
-          Show avatars
-        </label>
-      </div>
-      <div>
         <label>Default activity:</label>
         <input
           type="text"
@@ -658,20 +631,52 @@ export class WhereaboutsCardEditor extends LitElement {
         </div>
       </details>
 
-      <!-- TEMPLATE (Optional) -->
+      <!-- DISPLAY & STYLE (Optional) -->
       <details>
-        <summary><h3 style="display: inline;">Template (Optional)</h3></summary>
+        <summary><h3 style="display: inline;">Display & Style (Optional)</h3></summary>
         <div style="margin-left: 1em;">
-          <p style="font-size: 0.9em; color: #666; margin-bottom: 1em;">
-            Customize the display format. Available placeholders:
-            <strong>{name}</strong>, <strong>{verb}</strong>, <strong>{preposition}</strong>,
-            <strong>{location}</strong>, <strong>{icon}</strong>
-          </p>
-          <p style="font-size: 0.9em; color: #666; margin-bottom: 1em;">
-            Use <strong>{-placeholder}</strong> to omit preceding space if empty.
-            Use <strong>&lt;right ...&gt;</strong> to float content to the right.
-          </p>
-          <div>
+
+          <!-- Show Title & Show Avatars -->
+          <div style="margin-bottom: 1em;">
+            <label>
+              <input
+                type="checkbox"
+                .checked=${this._config.show_title !== false}
+                @change=${this._toggleShowTitle}
+              />
+              Show title
+            </label>
+            <input
+              type="text"
+              placeholder="Card Title"
+              .value=${this._config.title ?? 'Whereabouts'}
+              ?disabled=${this._config.show_title === false}
+              @input=${this._titleChanged}
+              style="margin-left: 1em; width: 200px;"
+            />
+          </div>
+          <div style="margin-bottom: 1em;">
+            <label>
+              <input
+                type="checkbox"
+                .checked=${this._config.show_avatars === true}
+                @change=${this._toggleShowAvatars}
+              />
+              Show avatars
+            </label>
+          </div>
+
+          <!-- Template -->
+          <div style="margin-bottom: 1em;">
+            <p style="font-size: 0.9em; color: #666; margin-bottom: 0.5em;">
+              Customize the display format. Available placeholders:
+              <strong>{name}</strong>, <strong>{verb}</strong>, <strong>{preposition}</strong>,
+              <strong>{location}</strong>, <strong>{icon}</strong>
+            </p>
+            <p style="font-size: 0.9em; color: #666; margin-bottom: 1em;">
+              Use <strong>{-placeholder}</strong> to omit preceding space if empty.
+              Use <strong>&lt;right ...&gt;</strong> to float content to the right.
+            </p>
             <label>
               Template:
               <input type="text"
@@ -684,6 +689,134 @@ export class WhereaboutsCardEditor extends LitElement {
               Default: "{name} {verb} {-preposition} {-location} &lt;right {icon}&gt;"
             </p>
           </div>
+
+          <!-- Style Customization -->
+          <details style="margin-top: 1em;">
+            <summary style="cursor: pointer;"><strong>Advanced Styling</strong></summary>
+            <div style="margin-left: 1em; margin-top: 1em;">
+              <p style="font-size: 0.9em; color: #666; margin-bottom: 1em;">
+                Customize spacing, borders, and sizes. Leave empty to use defaults.
+              </p>
+
+              <div style="margin-bottom: 0.8em;">
+                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Container Margin:</label>
+                <input type="text"
+                  style="width: 100%; box-sizing: border-box;"
+                  .value=${this._config.style?.container_margin || ''}
+                  @input=${this._styleChanged('container_margin')}
+                  placeholder="12px 0 (default)" />
+                <p style="font-size: 0.85em; color: #888; margin: 0.2em 0 0 0;">Example: 12px 0, 1em 0.5em</p>
+              </div>
+
+              <div style="margin-bottom: 0.8em;">
+                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Container Padding:</label>
+                <input type="text"
+                  style="width: 100%; box-sizing: border-box;"
+                  .value=${this._config.style?.container_padding || ''}
+                  @input=${this._styleChanged('container_padding')}
+                  placeholder="8px (default)" />
+              </div>
+
+              <div style="margin-bottom: 0.8em;">
+                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Container Gap:</label>
+                <input type="text"
+                  style="width: 100%; box-sizing: border-box;"
+                  .value=${this._config.style?.container_gap || ''}
+                  @input=${this._styleChanged('container_gap')}
+                  placeholder="12px (default)" />
+                <p style="font-size: 0.85em; color: #888; margin: 0.2em 0 0 0;">Space between avatar and content</p>
+              </div>
+
+              <div style="margin-bottom: 0.8em;">
+                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Border Width:</label>
+                <input type="text"
+                  style="width: 100%; box-sizing: border-box;"
+                  .value=${this._config.style?.border_width || ''}
+                  @input=${this._styleChanged('border_width')}
+                  placeholder="3px (default)" />
+              </div>
+
+              <div style="margin-bottom: 0.8em;">
+                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Border Style:</label>
+                <select
+                  style="width: 100%; box-sizing: border-box;"
+                  .value=${this._config.style?.border_style || ''}
+                  @change=${this._styleChanged('border_style')}>
+                  <option value="">Default (solid)</option>
+                  <option value="solid">Solid</option>
+                  <option value="dashed">Dashed</option>
+                  <option value="dotted">Dotted</option>
+                  <option value="double">Double</option>
+                  <option value="none">None</option>
+                </select>
+              </div>
+
+              <div style="margin-bottom: 0.8em;">
+                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Border Color:</label>
+                <input type="text"
+                  style="width: 100%; box-sizing: border-box;"
+                  .value=${this._config.style?.border_color || ''}
+                  @input=${this._styleChanged('border_color')}
+                  placeholder="var(--primary-color) (default)" />
+                <p style="font-size: 0.85em; color: #888; margin: 0.2em 0 0 0;">Example: #1976d2, rgb(25, 118, 210), var(--primary-color)</p>
+              </div>
+
+              <div style="margin-bottom: 0.8em;">
+                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Avatar Size:</label>
+                <input type="text"
+                  style="width: 100%; box-sizing: border-box;"
+                  .value=${this._config.style?.avatar_size || ''}
+                  @input=${this._styleChanged('avatar_size')}
+                  placeholder="38px (default)" />
+              </div>
+
+              <div style="margin-bottom: 0.8em;">
+                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Location Font Size:</label>
+                <input type="text"
+                  style="width: 100%; box-sizing: border-box;"
+                  .value=${this._config.style?.location_font_size || ''}
+                  @input=${this._styleChanged('location_font_size')}
+                  placeholder="inherit (default)" />
+              </div>
+
+              <div style="margin-bottom: 0.8em;">
+                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Activity Font Size:</label>
+                <input type="text"
+                  style="width: 100%; box-sizing: border-box;"
+                  .value=${this._config.style?.activity_font_size || ''}
+                  @input=${this._styleChanged('activity_font_size')}
+                  placeholder="inherit (default)" />
+              </div>
+
+              <div style="margin-bottom: 0.8em;">
+                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Location Icon Size:</label>
+                <input type="text"
+                  style="width: 100%; box-sizing: border-box;"
+                  .value=${this._config.style?.location_icon_size || ''}
+                  @input=${this._styleChanged('location_icon_size')}
+                  placeholder="20px (default)" />
+              </div>
+
+              <div style="margin-bottom: 0.8em;">
+                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Location Icon Color:</label>
+                <input type="text"
+                  style="width: 100%; box-sizing: border-box;"
+                  .value=${this._config.style?.location_icon_color || ''}
+                  @input=${this._styleChanged('location_icon_color')}
+                  placeholder="var(--primary-color) (default)" />
+              </div>
+
+              <div style="margin-bottom: 0.8em;">
+                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Activity Icon Size:</label>
+                <input type="text"
+                  style="width: 100%; box-sizing: border-box;"
+                  .value=${this._config.style?.activity_icon_size || ''}
+                  @input=${this._styleChanged('activity_icon_size')}
+                  placeholder="20px (default)" />
+              </div>
+            </div>
+          </details>
+
         </div>
       </details>
 
@@ -1188,6 +1321,27 @@ export class WhereaboutsCardEditor extends LitElement {
     this._config = { ...this._config, template: value };
     this.requestUpdate();
     this._emitConfigChanged();
+  }
+
+  _styleChanged(key: string) {
+    return (e: Event) => {
+      const value = (e.target as HTMLInputElement | HTMLSelectElement).value.trim();
+      const style = { ...this._config.style };
+      if (value === '') {
+        delete style[key as keyof typeof style];
+      } else {
+        style[key as keyof typeof style] = value;
+      }
+      // Remove style object if empty
+      if (Object.keys(style).length === 0) {
+        const { style: _, ...rest } = this._config;
+        this._config = rest;
+      } else {
+        this._config = { ...this._config, style };
+      }
+      this.requestUpdate();
+      this._emitConfigChanged();
+    };
   }
 
   _emitConfigChanged() {
