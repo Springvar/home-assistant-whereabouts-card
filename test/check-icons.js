@@ -10,8 +10,11 @@ async function checkIcons() {
 
     const page = await browser.newPage();
 
+    const consoleMessages = [];
     page.on('console', msg => {
-        console.log(`  ${msg.type()}: ${msg.text()}`);
+        const text = msg.text();
+        console.log(`  ${msg.type()}: ${text}`);
+        consoleMessages.push({ type: msg.type(), text });
     });
 
     await page.goto(DEV_SERVER_URL, { waitUntil: 'networkidle2' });
@@ -69,7 +72,9 @@ async function checkIcons() {
     await page.screenshot({ path: 'test/icon-screenshot.png', fullPage: true });
     console.log('\n📸 Screenshot saved to test/icon-screenshot.png');
 
-    console.log('\n✅ Complete. Browser window left open for inspection.');
+    console.log('\n✅ Complete. Closing browser...');
+
+    await browser.close();
 }
 
 checkIcons().catch(error => {

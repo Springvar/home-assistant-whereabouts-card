@@ -240,10 +240,21 @@ class WhereaboutsCard extends LitElement {
                             locationText = evaluatedActivity.location_override;
                         }
 
+                        // Determine effective preposition with precedence: Activity > Zone group > Default
+                        let effectivePreposition = usedPreposition;
+                        if (evaluatedActivity?.preposition !== undefined) {
+                            effectivePreposition = evaluatedActivity.preposition;
+                        }
+
                         // Determine effective show_preposition
-                        const effectiveShowPreposition = evaluatedActivity?.show_preposition !== undefined
-                            ? evaluatedActivity.show_preposition
-                            : showPreposition;
+                        // If activity specifies a preposition, show it by default unless explicitly disabled
+                        let effectiveShowPreposition = showPreposition;
+                        if (evaluatedActivity?.show_preposition !== undefined) {
+                            effectiveShowPreposition = evaluatedActivity.show_preposition;
+                        } else if (evaluatedActivity?.preposition !== undefined) {
+                            // Activity has a preposition override, so show it
+                            effectiveShowPreposition = true;
+                        }
 
                         // Prepare template variables
                         const activityText = evaluatedActivity?.activity || this.default_activity;
@@ -251,7 +262,7 @@ class WhereaboutsCard extends LitElement {
                             name,
                             activity: activityText,
                             verb: activityText, // Backward compatibility: support legacy {verb} in templates
-                            preposition: effectiveShowPreposition ? usedPreposition : '',
+                            preposition: effectiveShowPreposition ? effectivePreposition : '',
                             location: locationText,
                             icon: displayIcon
                         };

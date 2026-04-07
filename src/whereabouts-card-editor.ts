@@ -223,7 +223,7 @@ export class WhereaboutsCardEditor extends LitElement {
     const allIcons = [...new Set([...this.usedIcons, ...defaultIcons])].sort();
 
     return html`
-      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+      <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 4px;">
         <input
           type="text"
           .value=${currentValue || ''}
@@ -459,19 +459,6 @@ export class WhereaboutsCardEditor extends LitElement {
                   />
                 </div>
                 <div>
-                  <label>Icon (optional):</label>
-                  ${this._renderIconPicker(
-                    activity.icon || '',
-                    'e.g., mdi:gamepad',
-                    (value) => {
-                      const activities = [...(this._config.activities || [])];
-                      activities[idx] = { ...activities[idx], icon: value || undefined };
-                      this._config = { ...this._config, activities };
-                      this._emitConfigChanged();
-                    }
-                  )}
-                </div>
-                <div>
                   <label>
                     <input
                       type="checkbox"
@@ -480,8 +467,35 @@ export class WhereaboutsCardEditor extends LitElement {
                       .indeterminate=${activity.show_preposition === undefined}
                       @change=${(e: Event) => this._activityShowPrepositionChanged(idx, e)}
                     />
-                    Override zone preposition setting (show preposition)
+                    Show preposition
                   </label>
+                </div>
+                ${activity.show_preposition !== false ? html`
+                <div style="margin-left: 1.5em; margin-top: 0.5em; display: flex; align-items: flex-start; gap: 8px;">
+                  <label style="flex-shrink: 0;">Preposition:</label>
+                  <input
+                    type="text"
+                    .value=${activity.preposition || ''}
+                    @input=${(e: Event) => this._activityPrepositionChanged(idx, e)}
+                    placeholder="(optional, e.g., from, near)"
+                    style="flex: 1; min-width: 100px; box-sizing: border-box;"
+                  />
+                </div>
+                ` : ''}
+                <div style="display: flex; align-items: flex-start; gap: 8px;">
+                  <label style="flex-shrink: 0;">Icon (optional):</label>
+                  <div style="flex: 1; min-width: 150px;">
+                    ${this._renderIconPicker(
+                      activity.icon || '',
+                      'e.g., mdi:gamepad',
+                      (value) => {
+                        const activities = [...(this._config.activities || [])];
+                        activities[idx] = { ...activities[idx], icon: value || undefined };
+                        this._config = { ...this._config, activities };
+                        this._emitConfigChanged();
+                      }
+                    )}
+                  </div>
                 </div>
                 <div>
                   <strong>Conditions</strong>
@@ -543,52 +557,74 @@ export class WhereaboutsCardEditor extends LitElement {
           ${(this._config.zone_groups ?? []).map((group: ZoneGroup, gidx: number) => {
             const invalidZones = this.getZoneGroupInvalidZones(group);
             const hasInvalidZones = invalidZones.length > 0;
+
+            // Format zone list for display when no group name
+            const zoneLabel = group.zones.map(zid =>
+              this.hass.states[zid]?.attributes?.friendly_name || (zid === 'home' ? 'Home' : zid.replace('zone.', ''))
+            ).join(', ');
+
             return html`
             <details style="margin-bottom:1em; border: 1px solid #ccc; padding: 0.5em; border-radius: 4px;">
               <summary style="cursor: pointer; font-weight: bold;">
-                ${group.name || `Zone Group ${gidx + 1}`}
+                ${group.name || zoneLabel || `Zone Group ${gidx + 1}`}
                 ${hasInvalidZones ? html`<span style="color: #ff9800; font-size: 1.2em; margin-left: 0.5em;" title="Contains invalid zones: ${invalidZones.join(', ')}">⚠️</span>` : ''}
                 <button @click=${(e: Event) => { e.preventDefault(); e.stopPropagation(); this._removeZoneGroup(gidx); }} style="margin-left: 1em;">Remove Group</button>
               </summary>
               <div style="margin-top: 0.5em;">
               <div>
-                <label>Group Name:</label>
-                <input type="text" .value=${group.name ?? ''} @input=${(e: Event) => this._zoneGroupNameChanged(gidx, e)} placeholder="Group Name (optional)" />
-              </div>
-              <div>
-                <label>
-                  <input type="checkbox"
-                    .checked=${group.show_preposition !== false}
-                    @change=${(e: Event) => this._zoneGroupShowPrepositionChanged(gidx, e)}/>
-                  Show preposition
-                </label>
-              </div>
-              <div>
                 <label>
                   <input type="checkbox"
                     .checked=${group.override_location !== false}
                     @change=${(e: Event) => this._zoneGroupOverrideLocationChanged(gidx, e)}/>
-                  Override location name with group name
+                  Show location
                 </label>
               </div>
+              ${group.override_location !== false ? html`
+              <div style="margin-left: 1.5em; margin-top: 0.5em; display: flex; align-items: flex-start; gap: 8px;">
+                <label style="flex-shrink: 0;">Display as:</label>
+                <input type="text"
+                  .value=${group.name ?? ''}
+                  @input=${(e: Event) => this._zoneGroupNameChanged(gidx, e)}
+                  placeholder="(optional, replace zone names with alternative name)"
+                  style="flex: 1; min-width: 150px; box-sizing: border-box;" />
+              </div>
+              ` : ''}
               <div>
                 <label>
-                  Preposition:
-                  <input type="text" .value=${group.preposition ?? ''} @input=${(e: Event) => this._zoneGroupPrepositionChanged(gidx, e)} placeholder="(optional, e.g., at)" />
+                  <input
+                    type="checkbox"
+                    class="tristate-checkbox"
+                    .checked=${group.show_preposition === true}
+                    .indeterminate=${group.show_preposition === undefined}
+                    @change=${(e: Event) => this._zoneGroupShowPrepositionChanged(gidx, e)}
+                  />
+                  Show preposition
                 </label>
               </div>
-              <div>
-                <label>Icon:</label>
-                ${this._renderIconPicker(
-                  group.icon || '',
-                  '(optional, e.g., mdi:home)',
-                  (value) => {
-                    const zone_groups = [...(this._config.zone_groups || [])];
-                    zone_groups[gidx] = { ...zone_groups[gidx], icon: value || undefined };
-                    this._config = { ...this._config, zone_groups };
-                    this._emitConfigChanged();
-                  }
-                )}
+              ${group.show_preposition !== false ? html`
+              <div style="margin-left: 1.5em; margin-top: 0.5em; display: flex; align-items: flex-start; gap: 8px;">
+                <label style="flex-shrink: 0;">Preposition:</label>
+                <input type="text"
+                  .value=${group.preposition ?? ''}
+                  @input=${(e: Event) => this._zoneGroupPrepositionChanged(gidx, e)}
+                  placeholder="(optional, e.g., at)"
+                  style="flex: 1; min-width: 100px; box-sizing: border-box;" />
+              </div>
+              ` : ''}
+              <div style="display: flex; align-items: flex-start; gap: 8px;">
+                <label style="flex-shrink: 0;">Icon (optional):</label>
+                <div style="flex: 1; min-width: 150px;">
+                  ${this._renderIconPicker(
+                    group.icon || '',
+                    'e.g., mdi:home',
+                    (value) => {
+                      const zone_groups = [...(this._config.zone_groups || [])];
+                      zone_groups[gidx] = { ...zone_groups[gidx], icon: value || undefined };
+                      this._config = { ...this._config, zone_groups };
+                      this._emitConfigChanged();
+                    }
+                  )}
+                </div>
               </div>
               <div>
                 <label>Add zone:</label>
@@ -600,7 +636,6 @@ export class WhereaboutsCardEditor extends LitElement {
         </select>
       </div>
       <div>
-                Zones:
         <ul>
                   ${group.zones
                     .slice()
@@ -996,6 +1031,15 @@ export class WhereaboutsCardEditor extends LitElement {
     this._emitConfigChanged();
   }
 
+  _activityPrepositionChanged(idx: number, e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    const activities = [...(this._config.activities ?? [])];
+    activities[idx] = { ...activities[idx], preposition: value || undefined };
+    this._config = { ...this._config, activities };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
   _activityIconChanged(idx: number, e: Event) {
     const value = (e.target as HTMLInputElement).value;
     const activities = [...(this._config.activities ?? [])];
@@ -1135,9 +1179,21 @@ export class WhereaboutsCardEditor extends LitElement {
   }
 
   _zoneGroupShowPrepositionChanged(gidx: number, e: Event) {
-    const checked = (e.target as HTMLInputElement).checked;
     const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
-    groups[gidx] = { ...groups[gidx], show_preposition: checked };
+
+    // Cycle through three states: undefined (inherit) -> true -> false -> undefined
+    const currentValue = groups[gidx].show_preposition;
+    let newValue: boolean | undefined;
+
+    if (currentValue === undefined) {
+      newValue = true;
+    } else if (currentValue === true) {
+      newValue = false;
+    } else {
+      newValue = undefined;
+    }
+
+    groups[gidx] = { ...groups[gidx], show_preposition: newValue };
     this._config = { ...this._config, zone_groups: groups };
     this.requestUpdate();
     this._emitConfigChanged();

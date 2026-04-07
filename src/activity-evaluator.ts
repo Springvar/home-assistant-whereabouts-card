@@ -84,6 +84,7 @@ function matchesWhenPeriod(period: string): boolean {
 export interface EvaluatedActivity {
     activity: string;
     location_override?: string;
+    preposition?: string;
     show_preposition?: boolean;
     icon?: string;
 }
@@ -112,6 +113,7 @@ export class ActivityEvaluator {
                 return {
                     activity: this.replacePlaceholders(activityText),
                     location_override: activity.location_override,
+                    preposition: activity.preposition,
                     show_preposition: activity.show_preposition,
                     icon: activity.icon
                 };

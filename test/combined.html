@@ -81,8 +81,9 @@
                 align-items: flex-start;
             }
             .editor-column {
-                flex: 1 1 600px;
+                flex: 1 1 460px;
                 min-width: 400px;
+                max-width: 460px;
             }
             .preview-column {
                 flex: 0 1 400px;
@@ -278,7 +279,7 @@
                     },
                     {
                         entity_id: 'person.joey_doe',
-                        name: 'Joey (the dog)',
+                        name: 'Doggy Doe(g)',
                         namedSensors: {
                             in_doghouse: { entity_id: 'binary_sensor.joey_in_doghouse' }
                         }
@@ -301,7 +302,8 @@
                             who: 'person.joey_doe',
                             in_doghouse: 'on'
                         },
-                        location_override: 'in the dog house',
+                        location_override: 'the dog house',
+                        preposition: 'in',
                         icon: 'mdi:sleep'
                     },
                     {

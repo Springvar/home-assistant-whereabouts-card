@@ -50,6 +50,7 @@ export interface Activity {
     verb?: string; // Deprecated: use 'activity' instead
     conditions: ActivityConditions;
     location_override?: string; // Optional location override, "-" = hide location
+    preposition?: string; // Optional preposition override
     show_preposition?: boolean; // Override zone group's show_preposition setting
     icon?: string; // Optional icon override
 }
