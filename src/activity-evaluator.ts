@@ -84,6 +84,7 @@ function matchesWhenPeriod(period: string): boolean {
 export interface EvaluatedActivity {
     activity: string;
     location_override?: string;
+    show_location?: boolean;
     preposition?: string;
     show_preposition?: boolean;
     icon?: string;
@@ -110,9 +111,17 @@ export class ActivityEvaluator {
         for (const activity of this.activities) {
             if (this.evaluateActivity(activity)) {
                 const activityText = activity.activity || activity.verb || '';
+                // Backward compatibility: treat location_override: '-' as show_location: false
+                let showLocation = activity.show_location;
+                let locationOverride = activity.location_override;
+                if (locationOverride === '-' && showLocation === undefined) {
+                    showLocation = false;
+                    locationOverride = undefined;
+                }
                 return {
                     activity: this.replacePlaceholders(activityText),
-                    location_override: activity.location_override,
+                    location_override: locationOverride,
+                    show_location: showLocation,
                     preposition: activity.preposition,
                     show_preposition: activity.show_preposition,
                     icon: activity.icon

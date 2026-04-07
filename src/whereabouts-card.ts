@@ -234,11 +234,14 @@ class WhereaboutsCard extends LitElement {
 
                         // Determine location text
                         let locationText = zoneDisplay;
-                        if (evaluatedActivity?.location_override === '-') {
+                        if (evaluatedActivity?.show_location === false) {
+                            // Explicitly hide location
                             locationText = '';
                         } else if (evaluatedActivity?.location_override) {
+                            // Use custom location text
                             locationText = evaluatedActivity.location_override;
                         }
+                        // If show_location is undefined or true, use default zoneDisplay
 
                         // Determine effective preposition with precedence: Activity > Zone group > Default
                         let effectivePreposition = usedPreposition;

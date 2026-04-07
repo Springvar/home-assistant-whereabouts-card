@@ -49,7 +49,8 @@ export interface Activity {
     activity: string;
     verb?: string; // Deprecated: use 'activity' instead
     conditions: ActivityConditions;
-    location_override?: string; // Optional location override, "-" = hide location
+    location_override?: string; // Optional custom location text
+    show_location?: boolean; // Show/hide location (undefined = inherit, true = show, false = hide)
     preposition?: string; // Optional preposition override
     show_preposition?: boolean; // Override zone group's show_preposition setting
     icon?: string; // Optional icon override

@@ -202,12 +202,53 @@ export class WhereaboutsCardEditor extends LitElement {
 
   setConfig(config: WhereaboutsCardConfig) {
     this._config = { ...config };
+
+    // Migrate zone groups
     this._config.zone_groups = (this._config.zone_groups || []).map((zg) => ({
       ...zg,
       show_preposition: zg.show_preposition !== false
     })) as ZoneGroup[];
 
+    // Migrate activities: convert old '-' location_override to show_location: false
+    this._config.activities = (this._config.activities || []).map((activity) => {
+      if (activity.location_override === '-') {
+        return {
+          ...activity,
+          location_override: undefined,
+          show_location: false
+        };
+      }
+      return activity;
+    });
+
     this.requestUpdate();
+  }
+
+  updated(changedProperties: Map<string, any>) {
+    super.updated(changedProperties);
+
+    // Update all tristate checkboxes
+    this.shadowRoot?.querySelectorAll('.tristate-checkbox[data-activity-idx]').forEach((checkbox) => {
+      const cb = checkbox as HTMLInputElement;
+      const idx = parseInt(cb.getAttribute('data-activity-idx') || '-1');
+      const field = cb.getAttribute('data-tristate-field');
+
+      if (idx >= 0 && field && this._config.activities?.[idx]) {
+        const activity = this._config.activities[idx];
+        const value = field === 'show_location' ? activity.show_location : activity.show_preposition;
+
+        if (value === undefined) {
+          cb.checked = false;
+          cb.indeterminate = true;
+        } else if (value === true) {
+          cb.indeterminate = false;
+          cb.checked = true;
+        } else {
+          cb.indeterminate = false;
+          cb.checked = false;
+        }
+      }
+    });
   }
 
   private _renderIconPicker(currentValue: string, placeholder: string, onChange: (value: string) => void) {
@@ -450,22 +491,37 @@ export class WhereaboutsCardEditor extends LitElement {
                   />
                 </div>
                 <div>
-                  <label>Location override (optional):</label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      class="tristate-checkbox"
+                      data-activity-idx="${idx}"
+                      data-tristate-field="show_location"
+                      @click=${(e: Event) => this._activityShowLocationChanged(idx, e)}
+                    />
+                    Show location
+                  </label>
+                </div>
+                ${activity.show_location !== false ? html`
+                <div style="margin-left: 1.5em; margin-top: 0.5em; display: flex; align-items: flex-start; gap: 8px;">
+                  <label style="flex-shrink: 0;">Location (override):</label>
                   <input
                     type="text"
                     .value=${activity.location_override || ''}
                     @input=${(e: Event) => this._activityLocationOverrideChanged(idx, e)}
-                    placeholder="Use '-' to hide location, or custom text"
+                    placeholder="(optional, custom text)"
+                    style="flex: 1; min-width: 150px; box-sizing: border-box;"
                   />
                 </div>
+                ` : ''}
                 <div>
                   <label>
                     <input
                       type="checkbox"
                       class="tristate-checkbox"
-                      .checked=${activity.show_preposition === true}
-                      .indeterminate=${activity.show_preposition === undefined}
-                      @change=${(e: Event) => this._activityShowPrepositionChanged(idx, e)}
+                      data-activity-idx="${idx}"
+                      data-tristate-field="show_preposition"
+                      @click=${(e: Event) => this._activityShowPrepositionChanged(idx, e)}
                     />
                     Show preposition
                   </label>
@@ -581,7 +637,7 @@ export class WhereaboutsCardEditor extends LitElement {
               </div>
               ${group.override_location !== false ? html`
               <div style="margin-left: 1.5em; margin-top: 0.5em; display: flex; align-items: flex-start; gap: 8px;">
-                <label style="flex-shrink: 0;">Display as:</label>
+                <label style="flex-shrink: 0;">Display as (override):</label>
                 <input type="text"
                   .value=${group.name ?? ''}
                   @input=${(e: Event) => this._zoneGroupNameChanged(gidx, e)}
@@ -593,9 +649,7 @@ export class WhereaboutsCardEditor extends LitElement {
                 <label>
                   <input
                     type="checkbox"
-                    class="tristate-checkbox"
-                    .checked=${group.show_preposition === true}
-                    .indeterminate=${group.show_preposition === undefined}
+                    .checked=${group.show_preposition !== false}
                     @change=${(e: Event) => this._zoneGroupShowPrepositionChanged(gidx, e)}
                   />
                   Show preposition
@@ -603,7 +657,7 @@ export class WhereaboutsCardEditor extends LitElement {
               </div>
               ${group.show_preposition !== false ? html`
               <div style="margin-left: 1.5em; margin-top: 0.5em; display: flex; align-items: flex-start; gap: 8px;">
-                <label style="flex-shrink: 0;">Preposition:</label>
+                <label style="flex-shrink: 0;">Preposition (override):</label>
                 <input type="text"
                   .value=${group.preposition ?? ''}
                   @input=${(e: Event) => this._zoneGroupPrepositionChanged(gidx, e)}
@@ -1025,6 +1079,7 @@ export class WhereaboutsCardEditor extends LitElement {
   _activityLocationOverrideChanged(idx: number, e: Event) {
     const value = (e.target as HTMLInputElement).value;
     const activities = [...(this._config.activities ?? [])];
+    // Store value or undefined if empty
     activities[idx] = { ...activities[idx], location_override: value || undefined };
     this._config = { ...this._config, activities };
     this.requestUpdate();
@@ -1049,6 +1104,41 @@ export class WhereaboutsCardEditor extends LitElement {
     this._emitConfigChanged();
   }
 
+  _activityShowLocationChanged(idx: number, e: Event) {
+    const checkbox = e.target as HTMLInputElement;
+    const activities = [...(this._config.activities ?? [])];
+
+    // Cycle through three states: undefined (inherit) -> true (show) -> false (hide) -> undefined
+    const currentValue = activities[idx].show_location;
+    let newValue: boolean | undefined;
+
+    if (currentValue === undefined) {
+      newValue = true;
+    } else if (currentValue === true) {
+      newValue = false;
+    } else {
+      newValue = undefined;
+    }
+
+    activities[idx] = { ...activities[idx], show_location: newValue };
+    this._config = { ...this._config, activities };
+
+    // Immediately update checkbox visual state
+    if (newValue === undefined) {
+      checkbox.checked = false;
+      checkbox.indeterminate = true;
+    } else if (newValue === true) {
+      checkbox.indeterminate = false;
+      checkbox.checked = true;
+    } else {
+      checkbox.indeterminate = false;
+      checkbox.checked = false;
+    }
+
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
   _activityShowPrepositionChanged(idx: number, e: Event) {
     const checkbox = e.target as HTMLInputElement;
     const activities = [...(this._config.activities ?? [])];
@@ -1067,6 +1157,19 @@ export class WhereaboutsCardEditor extends LitElement {
 
     activities[idx] = { ...activities[idx], show_preposition: newValue };
     this._config = { ...this._config, activities };
+
+    // Immediately update checkbox visual state
+    if (newValue === undefined) {
+      checkbox.checked = false;
+      checkbox.indeterminate = true;
+    } else if (newValue === true) {
+      checkbox.indeterminate = false;
+      checkbox.checked = true;
+    } else {
+      checkbox.indeterminate = false;
+      checkbox.checked = false;
+    }
+
     this.requestUpdate();
     this._emitConfigChanged();
   }
@@ -1179,21 +1282,9 @@ export class WhereaboutsCardEditor extends LitElement {
   }
 
   _zoneGroupShowPrepositionChanged(gidx: number, e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
     const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
-
-    // Cycle through three states: undefined (inherit) -> true -> false -> undefined
-    const currentValue = groups[gidx].show_preposition;
-    let newValue: boolean | undefined;
-
-    if (currentValue === undefined) {
-      newValue = true;
-    } else if (currentValue === true) {
-      newValue = false;
-    } else {
-      newValue = undefined;
-    }
-
-    groups[gidx] = { ...groups[gidx], show_preposition: newValue };
+    groups[gidx] = { ...groups[gidx], show_preposition: checked };
     this._config = { ...this._config, zone_groups: groups };
     this.requestUpdate();
     this._emitConfigChanged();
@@ -1481,18 +1572,68 @@ export class WhereaboutsCardEditor extends LitElement {
       background: #f0f0f0;
     }
 
-    /* Tristate checkbox styling */
-    .tristate-checkbox {
+    /* Regular checkbox styling */
+    input[type="checkbox"]:not(.tristate-checkbox) {
       appearance: none;
       -webkit-appearance: none;
-      width: 18px;
-      height: 18px;
-      border: 2px solid #ccc;
-      border-radius: 3px;
+      width: 16px;
+      height: 16px;
+      border: 1px solid #757575;
+      border-radius: 2px;
       cursor: pointer;
       position: relative;
       vertical-align: middle;
       margin-right: 8px;
+      background-color: white;
+    }
+
+    input[type="checkbox"]:not(.tristate-checkbox):checked {
+      background-color: var(--primary-color, #03a9f4);
+      border-color: var(--primary-color, #03a9f4);
+    }
+
+    input[type="checkbox"]:not(.tristate-checkbox):checked::after {
+      content: '✓';
+      position: absolute;
+      left: 50%;
+      top: 48%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+      line-height: 1;
+    }
+
+    /* Tristate checkbox styling */
+    .tristate-checkbox {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border: 1px solid #757575;
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+      vertical-align: middle;
+      margin-right: 8px;
+      background-color: white;
+    }
+
+    /* Checked state (true) - blue checkmark */
+    .tristate-checkbox:checked {
+      background-color: var(--primary-color, #03a9f4);
+      border-color: var(--primary-color, #03a9f4);
+    }
+    .tristate-checkbox:checked::after {
+      content: '✓';
+      position: absolute;
+      left: 50%;
+      top: 48%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 12px;
+      font-weight: bold;
+      line-height: 1;
     }
 
     /* Indeterminate state (undefined) - gray dash */
@@ -1506,41 +1647,24 @@ export class WhereaboutsCardEditor extends LitElement {
       left: 50%;
       top: 50%;
       transform: translate(-50%, -50%);
-      width: 10px;
+      width: 8px;
       height: 2px;
       background-color: white;
     }
 
-    /* Checked state (true) - blue checkmark */
-    .tristate-checkbox:checked {
-      background-color: var(--primary-color, #0984e3);
-      border-color: var(--primary-color, #0984e3);
-    }
-    .tristate-checkbox:checked::after {
-      content: '✓';
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      color: white;
-      font-size: 14px;
-      font-weight: bold;
-      line-height: 1;
-    }
-
     /* Unchecked state (false) - red X */
     .tristate-checkbox:not(:checked):not(:indeterminate) {
-      background-color: #d63031;
-      border-color: #d63031;
+      background-color: #d32f2f;
+      border-color: #d32f2f;
     }
     .tristate-checkbox:not(:checked):not(:indeterminate)::after {
       content: '✕';
       position: absolute;
       left: 50%;
-      top: 50%;
+      top: 48%;
       transform: translate(-50%, -50%);
       color: white;
-      font-size: 14px;
+      font-size: 11px;
       font-weight: bold;
       line-height: 1;
     }
