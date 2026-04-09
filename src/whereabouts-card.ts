@@ -79,8 +79,42 @@ class WhereaboutsCard extends LitElement {
     @property({ type: Object })
     declare config: WhereaboutsCardConfig;
 
+    private _hass: any;
+    private _trackedEntities: Set<string> = new Set();
+
     @property({ attribute: false })
-    declare hass: any;
+    set hass(value: any) {
+        const oldHass = this._hass;
+        this._hass = value;
+
+        // On first load, update tracked entities to include zones
+        if (!oldHass && value) {
+            this.updateTrackedEntities();
+        }
+
+        // Check if any tracked entities changed
+        if (oldHass && this._trackedEntities.size > 0) {
+            for (const entityId of this._trackedEntities) {
+                const oldState = oldHass.states[entityId];
+                const newState = value.states[entityId];
+
+                // Trigger update if entity state or attributes changed
+                if (!oldState || !newState ||
+                    oldState.state !== newState.state ||
+                    JSON.stringify(oldState.attributes) !== JSON.stringify(newState.attributes)) {
+                    this.requestUpdate('hass', oldHass);
+                    return;
+                }
+            }
+        } else {
+            // First load or no entities to track - always update
+            this.requestUpdate('hass', oldHass);
+        }
+    }
+
+    get hass() {
+        return this._hass;
+    }
 
     static async getConfigElement(config: WhereaboutsCardConfig) {
         await import('./whereabouts-card-editor');
@@ -146,6 +180,41 @@ class WhereaboutsCard extends LitElement {
         this.activities = config.activities || [];
         this.zone_groups = (config.zone_groups || []).map((z) => ({ ...z, show_preposition: z.show_preposition !== false }));
         this.template = config.template || '{name} {activity} {-preposition} {-location} <right {icon}>';
+
+        // Update tracked entities
+        this.updateTrackedEntities();
+    }
+
+    private updateTrackedEntities(): void {
+        this._trackedEntities.clear();
+
+        // Track all person entities
+        for (const person of this.persons) {
+            this._trackedEntities.add(person.entity_id);
+
+            // Track all named sensors for this person
+            if (person.namedSensors) {
+                for (const sensor of Object.values(person.namedSensors)) {
+                    if (sensor && sensor.entity_id) {
+                        if (Array.isArray(sensor.entity_id)) {
+                            sensor.entity_id.forEach(id => this._trackedEntities.add(id));
+                        } else {
+                            this._trackedEntities.add(sensor.entity_id);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Track all zone entities (we'll add them dynamically during render)
+        // This is needed because we don't know which zones persons will be in ahead of time
+        if (this._hass) {
+            Object.keys(this._hass.states).forEach(entityId => {
+                if (entityId.startsWith('zone.')) {
+                    this._trackedEntities.add(entityId);
+                }
+            });
+        }
     }
 
     render() {

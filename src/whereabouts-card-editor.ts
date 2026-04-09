@@ -27,6 +27,39 @@ export class WhereaboutsCardEditor extends LitElement {
     return Array.from(icons).sort();
   }
 
+  get trackedEntities(): string[] {
+    const tracked = new Set<string>();
+
+    // Track all person entities
+    for (const person of this._config.persons) {
+      tracked.add(person.entity_id);
+
+      // Track all named sensors for this person
+      if (person.namedSensors) {
+        for (const sensor of Object.values(person.namedSensors)) {
+          if (sensor && sensor.entity_id) {
+            if (Array.isArray(sensor.entity_id)) {
+              sensor.entity_id.forEach(id => tracked.add(id));
+            } else {
+              tracked.add(sensor.entity_id);
+            }
+          }
+        }
+      }
+    }
+
+    // Track all zone entities
+    if (this.hass) {
+      Object.keys(this.hass.states).forEach(entityId => {
+        if (entityId.startsWith('zone.')) {
+          tracked.add(entityId);
+        }
+      });
+    }
+
+    return Array.from(tracked).sort();
+  }
+
   get availableZones(): string[] {
     if (!this.hass) return [];
     let allZones = Object.keys(this.hass.states).filter(eid => eid.startsWith('zone.'));
@@ -908,6 +941,29 @@ export class WhereaboutsCardEditor extends LitElement {
 
         </div>
       </details>
+
+      <!-- LISTENING INFO -->
+      <h3>Listens to (${this.trackedEntities.length} entities)</h3>
+      <p style="font-size: 0.9em; color: #666; margin-bottom: 0.5em;">
+        The card monitors these entities for state changes:
+      </p>
+      <div>
+        <ul style="list-style: none; padding: 0; margin: 0;">
+          ${this.trackedEntities.map(entityId => {
+            const entity = this.hass?.states[entityId];
+            const state = entity?.state || 'unavailable';
+            const domain = entityId.split('.')[0];
+
+            return html`
+              <li style="margin-bottom: 0.25em; padding: 0.25em; display: flex; align-items: center; gap: 0.5em; font-size: 0.9em;">
+                <span style="display: inline-block; padding: 0.15em 0.4em; background: ${domain === 'person' ? '#4caf50' : domain === 'zone' ? '#2196f3' : '#ff9800'}; color: white; border-radius: 3px; font-size: 0.7em; font-weight: bold; min-width: 45px; text-align: center;">${domain}</span>
+                <span style="font-family: monospace; font-size: 0.85em;">${entityId}</span>
+                <span style="margin-left: auto; color: #666; font-size: 0.85em;">${state}</span>
+              </li>
+            `;
+          })}
+        </ul>
+      </div>
 
         </div>
       </div>
