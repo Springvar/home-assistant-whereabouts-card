@@ -350,10 +350,12 @@ describe('ActivityEvaluator', () => {
         const evaluator = new ActivityEvaluator(hass, person, activities, []);
 
         const result = evaluator.evaluate();
+        // location_override: '-' is converted to show_location: false
         expect(result).toEqual({
             activity: 'is working',
             icon: 'mdi:briefcase',
-            location_override: '-',
+            location_override: undefined,
+            show_location: false,
             show_preposition: false
         });
     });
