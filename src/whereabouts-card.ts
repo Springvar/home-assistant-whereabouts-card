@@ -218,7 +218,7 @@ class WhereaboutsCard extends LitElement {
     }
 
     render() {
-        if (!this.hass || this.persons.length === 0) {
+        if (!this.hass || !this.persons || this.persons.length === 0) {
             return html`<div>No persons configured</div>`;
         }
 
