@@ -11,7 +11,8 @@ export default defineConfig({
         rollupOptions: {
             external: [],
             output: {
-                entryFileNames: 'home-assistant-whereabouts-card.js'
+                entryFileNames: 'home-assistant-whereabouts-card.js',
+                inlineDynamicImports: true
             }
         },
         minify: 'esbuild'
