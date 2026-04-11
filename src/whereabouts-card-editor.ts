@@ -260,7 +260,7 @@ export class WhereaboutsCardEditor extends LitElement {
   updated(changedProperties: Map<string, any>) {
     super.updated(changedProperties);
 
-    // Update all tristate checkboxes
+    // Update all activity tristate checkboxes
     this.shadowRoot?.querySelectorAll('.tristate-checkbox[data-activity-idx]').forEach((checkbox) => {
       const cb = checkbox as HTMLInputElement;
       const idx = parseInt(cb.getAttribute('data-activity-idx') || '-1');
@@ -269,6 +269,29 @@ export class WhereaboutsCardEditor extends LitElement {
       if (idx >= 0 && field && this._config.activities?.[idx]) {
         const activity = this._config.activities[idx];
         const value = field === 'show_location' ? activity.show_location : activity.show_preposition;
+
+        if (value === undefined) {
+          cb.checked = false;
+          cb.indeterminate = true;
+        } else if (value === true) {
+          cb.indeterminate = false;
+          cb.checked = true;
+        } else {
+          cb.indeterminate = false;
+          cb.checked = false;
+        }
+      }
+    });
+
+    // Update all person tristate checkboxes
+    this.shadowRoot?.querySelectorAll('.tristate-checkbox[data-person-idx]').forEach((checkbox) => {
+      const cb = checkbox as HTMLInputElement;
+      const idx = parseInt(cb.getAttribute('data-person-idx') || '-1');
+      const field = cb.getAttribute('data-tristate-field');
+
+      if (idx >= 0 && field && this._config.persons?.[idx]) {
+        const person = this._config.persons[idx];
+        const value = person.show_avatar;
 
         if (value === undefined) {
           cb.checked = false;
@@ -366,6 +389,18 @@ export class WhereaboutsCardEditor extends LitElement {
                   @input=${(e: Event) => this._personNameChanged(idx, e)}
                   placeholder="Leave empty to use entity name"
                 />
+              </div>
+              <div>
+                <label>
+                  <input
+                    type="checkbox"
+                    class="tristate-checkbox"
+                    data-person-idx="${idx}"
+                    data-tristate-field="show_avatar"
+                    @click=${(e: Event) => this._personShowAvatarChanged(idx, e)}
+                  />
+                  Show avatar
+                </label>
               </div>
 
               <!-- Sensors -->
@@ -1090,6 +1125,41 @@ export class WhereaboutsCardEditor extends LitElement {
     const persons = [...this._config.persons];
     persons[idx] = { ...persons[idx], name: value || undefined };
     this._config = { ...this._config, persons };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _personShowAvatarChanged(idx: number, e: Event) {
+    const checkbox = e.target as HTMLInputElement;
+    const persons = [...(this._config.persons || [])];
+
+    // Cycle through three states: undefined (inherit) -> true (show) -> false (hide) -> undefined
+    const currentValue = persons[idx].show_avatar;
+    let newValue: boolean | undefined;
+
+    if (currentValue === undefined) {
+      newValue = true;
+    } else if (currentValue === true) {
+      newValue = false;
+    } else {
+      newValue = undefined;
+    }
+
+    persons[idx] = { ...persons[idx], show_avatar: newValue };
+    this._config = { ...this._config, persons };
+
+    // Immediately update checkbox visual state
+    if (newValue === undefined) {
+      checkbox.checked = false;
+      checkbox.indeterminate = true;
+    } else if (newValue === true) {
+      checkbox.indeterminate = false;
+      checkbox.checked = true;
+    } else {
+      checkbox.indeterminate = false;
+      checkbox.checked = false;
+    }
+
     this.requestUpdate();
     this._emitConfigChanged();
   }

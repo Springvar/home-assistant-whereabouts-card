@@ -370,9 +370,14 @@ class WhereaboutsCard extends LitElement {
                             ? `--mdc-icon-size: ${this.config.style.activity_icon_size};`
                             : '';
 
+                        // Determine if avatar should be shown: per-person override takes precedence
+                        const shouldShowAvatar = person.show_avatar !== undefined
+                            ? person.show_avatar
+                            : this.show_avatars;
+
                         return html`
                             <div class="person-container" style="${containerStyle}">
-                                ${this.show_avatars && avatarUrl ? html`
+                                ${shouldShowAvatar && avatarUrl ? html`
                                     <div class="person-avatar-column">
                                         <img src="${avatarUrl}" class="person-avatar" style="${avatarStyle}" />
                                     </div>

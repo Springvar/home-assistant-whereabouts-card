@@ -64,6 +64,7 @@ export interface ActivityConditions {
 export interface PersonConfig {
     entity_id: string;
     name?: string;
+    show_avatar?: boolean; // Override global show_avatars setting (undefined = inherit, true = show, false = hide)
     namedSensors?: PersonSensors;
     activityRules?: ActivityRule[];
     showActivity?: boolean; // Toggle feature
