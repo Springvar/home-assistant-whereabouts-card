@@ -124,6 +124,9 @@ export class ActivityEvaluator {
 
     /**
      * Get the zone group that the person is currently in (if any)
+     * Returns the first zone group where:
+     * 1. Person's current zone is in the group's zones list
+     * 2. Zone group conditions match (if any are defined)
      */
     private getCurrentZoneGroup(): ZoneGroup | null {
         const personEntity = this.hass.states[this.person.entity_id];
@@ -136,9 +139,26 @@ export class ActivityEvaluator {
             ? personState
             : `zone.${personState.toLowerCase().replace(/\s+/g, '_')}`;
 
-        // Check each zone group to see if current zone is in it
+        // Check each zone group in order (priority matters)
         for (const group of this.zoneGroups) {
+            // Check if person is in this zone group
             if (group.zones.includes(zoneEntityId) || group.zones.includes(personState)) {
+                // Check if zone group conditions match (if any)
+                if (group.conditions && Object.keys(group.conditions).length > 0) {
+                    // Evaluate all conditions (AND logic)
+                    let allConditionsMatch = true;
+                    for (const [key, expectedValue] of Object.entries(group.conditions)) {
+                        if (!this.evaluateCondition(key, expectedValue)) {
+                            allConditionsMatch = false;
+                            break;
+                        }
+                    }
+                    // Only return this group if all conditions match
+                    if (!allConditionsMatch) {
+                        continue; // Try next zone group
+                    }
+                }
+                // Zone matches and conditions match (or no conditions) - return this group
                 return group;
             }
         }
