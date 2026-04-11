@@ -291,9 +291,9 @@
                 default_activity: 'is',
                 default_preposition: 'at',
                 zone_groups: [
-                    { name: 'home', zones: ['zone.home'], show_preposition: false },
+                    { name: 'home', zones: ['zone.home'], show_preposition: false, icon: 'mdi:home' },
+                    { zones: ['zone.school'], preposition: 'at', icon: 'mdi:school' },
                     {
-                        name: 'work/recreation',
                         zones: ['zone.office', 'zone.gym'],
                         preposition: 'at the',
                         activities: [
@@ -312,7 +312,7 @@
                 ],
                 activities: [
                     {
-                        activity: 'sleeping',
+                        activity: 'is sleeping',
                         conditions: {
                             who: 'person.joey_doe',
                             in_doghouse: 'on'

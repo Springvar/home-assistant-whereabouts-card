@@ -6,6 +6,8 @@ import type { PersonSensors } from './types';
 export class WhereaboutsCardEditor extends LitElement {
   @property({ attribute: false }) public hass: any;
   @state() private _config: WhereaboutsCardConfig = { persons: [], zone_groups: [] };
+  @state() private _showUsedZones: { [groupIndex: number]: boolean } = {};
+  @state() private _zoneFilter: { [groupIndex: number]: string } = {};
 
   get availablePersons(): string[] {
     if (!this.hass) return [];
@@ -77,6 +79,63 @@ export class WhereaboutsCardEditor extends LitElement {
         const bname = this.hass.states[b]?.attributes?.friendly_name || (b === 'home' ? 'Home' : b);
         return aname.localeCompare(bname);
       });
+  }
+
+  getZonesForGroup(groupIndex: number): { zone: string; isUsed: boolean }[] {
+    if (!this.hass) return [];
+
+    // Get all zones
+    let allZones = Object.keys(this.hass.states).filter(eid => eid.startsWith('zone.'));
+    const homeZonePresent = allZones.includes('zone.home');
+    if (!homeZonePresent) {
+      allZones = ['home', ...allZones];
+    }
+
+    // Get zones used in OTHER groups
+    const currentGroup = (this._config.zone_groups ?? [])[groupIndex];
+    const zonesInCurrentGroup = new Set(currentGroup?.zones || []);
+    const zonesInOtherGroups = new Set(
+      (this._config.zone_groups ?? [])
+        .filter((_, idx) => idx !== groupIndex)
+        .flatMap((g: ZoneGroup) => g.zones)
+    );
+
+    // Get filter text for this group
+    const filterText = (this._zoneFilter[groupIndex] || '').toLowerCase().trim();
+    const showUsed = this._showUsedZones[groupIndex] || filterText.length > 0;
+
+    // Filter zones
+    let zones = allZones
+      .filter(zid => !zonesInCurrentGroup.has(zid)) // Exclude zones already in this group
+      .filter(zid => {
+        // If we have a filter, apply it
+        if (filterText) {
+          const zoneName = (this.hass.states[zid]?.attributes?.friendly_name || (zid === 'home' ? 'Home' : zid)).toLowerCase();
+          return zoneName.includes(filterText) || zid.toLowerCase().includes(filterText);
+        }
+        // If no filter and not showing used zones, only show unused zones
+        if (!showUsed) {
+          return !zonesInOtherGroups.has(zid);
+        }
+        // Otherwise show all zones
+        return true;
+      });
+
+    // Map to objects with usage info
+    const zoneObjects = zones.map(zid => ({
+      zone: zid,
+      isUsed: zonesInOtherGroups.has(zid)
+    }));
+
+    // Sort: unused zones first, then used zones; alphabetically within each group
+    return zoneObjects.sort((a, b) => {
+      if (a.isUsed !== b.isUsed) {
+        return a.isUsed ? 1 : -1; // Unused first
+      }
+      const aname = this.hass.states[a.zone]?.attributes?.friendly_name || (a.zone === 'home' ? 'Home' : a.zone);
+      const bname = this.hass.states[b.zone]?.attributes?.friendly_name || (b.zone === 'home' ? 'Home' : b.zone);
+      return aname.localeCompare(bname);
+    });
   }
 
   isZoneValid(zoneId: string): boolean {
@@ -898,12 +957,34 @@ export class WhereaboutsCardEditor extends LitElement {
               </div>
               <div>
                 <label>Add zone:</label>
-                <select @change=${(e: Event) => this._addZoneToGroup(gidx, e)}>
-                  <option value="">Select a zone...</option>
-                  ${this.availableZones.map(zid =>
-                    html`<option value=${zid}>${this.hass.states[zid]?.attributes?.friendly_name || (zid === 'home' ? 'Home' : zid)}</option>`
-                  )}
-        </select>
+                <div style="margin-top: 0.5em;">
+                  <input
+                    type="text"
+                    .value=${this._zoneFilter[gidx] || ''}
+                    @input=${(e: Event) => this._zoneFilterChanged(gidx, e)}
+                    placeholder="Type to filter zones..."
+                    style="width: 100%; box-sizing: border-box; margin-bottom: 0.5em; margin-left: 0;"
+                  />
+                  <div style="display: flex; align-items: center; gap: 0.5em;">
+                    <select @change=${(e: Event) => this._addZoneToGroup(gidx, e)} class="zone-select" style="flex: 1;">
+                      <option value="">Select a zone...</option>
+                      ${this.getZonesForGroup(gidx).map(({ zone: zid, isUsed }) =>
+                        html`<option value=${zid} class="${isUsed ? 'used-zone' : ''}">${this.hass.states[zid]?.attributes?.friendly_name || (zid === 'home' ? 'Home' : zid)}${isUsed ? ' (used)' : ''}</option>`
+                      )}
+                    </select>
+                    ${!(this._zoneFilter[gidx] || '').trim() ? html`
+                      <label style="display: flex; align-items: center; font-size: 0.9em; color: #666; white-space: nowrap; margin: 0;">
+                        <input
+                          type="checkbox"
+                          .checked=${this._showUsedZones[gidx] || false}
+                          @change=${(e: Event) => this._toggleShowUsedZones(gidx, e)}
+                          style="margin: 0 0.3em 0 0;"
+                        />
+                        Show used
+                      </label>
+                    ` : ''}
+                  </div>
+                </div>
       </div>
       <div>
         <ul>
@@ -932,7 +1013,7 @@ export class WhereaboutsCardEditor extends LitElement {
               <!-- Zone Group Activities -->
               <details style="margin-top: 1em; border-top: 1px solid #eee; padding-top: 0.5em;">
                 <summary style="cursor: pointer; font-weight: bold; color: #555;">
-                  Activities (${(group.activities ?? []).length})
+                  Zone specific activities (${(group.activities ?? []).length})
                 </summary>
                 <p style="font-size: 0.85em; color: #666; margin: 0.5em 0;">
                   Activities defined here only apply when a person is in this zone group and take priority over card-level activities.
@@ -1712,14 +1793,24 @@ export class WhereaboutsCardEditor extends LitElement {
     this._emitConfigChanged();
   }
 
+  _zoneFilterChanged(gidx: number, e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    this._zoneFilter = { ...this._zoneFilter, [gidx]: value };
+    this.requestUpdate();
+  }
+
+  _toggleShowUsedZones(gidx: number, e: Event) {
+    const checked = (e.target as HTMLInputElement).checked;
+    this._showUsedZones = { ...this._showUsedZones, [gidx]: checked };
+    this.requestUpdate();
+  }
+
   _addZoneToGroup(gidx: number, e: Event) {
     const select = e.target as HTMLSelectElement;
     const zid = select.value;
-    if (
-      zid &&
-      !(this._config.zone_groups ?? []).some(g => g.zones.includes(zid)) &&
-      !(this._config.zone_groups ?? [])[gidx].zones.includes(zid)
-    ) {
+
+    // Check if zone is already in current group
+    if (zid && !(this._config.zone_groups ?? [])[gidx].zones.includes(zid)) {
       const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
       groups[gidx] = { ...groups[gidx], zones: [...groups[gidx].zones, zid] };
       this._config = { ...this._config, zone_groups: groups };
@@ -2439,6 +2530,12 @@ export class WhereaboutsCardEditor extends LitElement {
       outline: none;
       border-color: var(--primary-color, #03a9f4);
       z-index: 10;
+    }
+
+    /* Zone selection styling */
+    .zone-select option.used-zone {
+      background-color: #e0e0e0;
+      color: #666;
     }
   `;
 }
