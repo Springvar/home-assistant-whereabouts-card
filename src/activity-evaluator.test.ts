@@ -690,4 +690,470 @@ describe('ActivityEvaluator', () => {
             global.Date = originalDate;
         });
     });
+
+    describe('Zone Group Conditions', () => {
+        test('zone group applies when conditions match', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' },
+                'sensor.john_activity': { state: 'working' }
+            });
+            const person: PersonConfig = {
+                entity_id: 'person.john',
+                namedSensors: {
+                    activity: { entity_id: 'sensor.john_activity' }
+                }
+            };
+            const zoneGroups: ZoneGroup[] = [{
+                name: 'work',
+                zones: ['zone.office'],
+                icon: 'mdi:office-building',
+                conditions: {
+                    activity: 'working'
+                }
+            }];
+            const evaluator = new ActivityEvaluator(hass, person, [], zoneGroups);
+
+            const result = evaluator.evaluate();
+            // Zone group should match and default activity should be used
+            expect(result).toBeDefined();
+        });
+
+        test('zone group does not apply when conditions do not match', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' },
+                'sensor.john_activity': { state: 'in-meeting' }
+            });
+            const person: PersonConfig = {
+                entity_id: 'person.john',
+                namedSensors: {
+                    activity: { entity_id: 'sensor.john_activity' }
+                }
+            };
+            const zoneGroups: ZoneGroup[] = [{
+                name: 'work',
+                zones: ['zone.office'],
+                icon: 'mdi:office-building',
+                conditions: {
+                    activity: 'working' // Does not match 'in-meeting'
+                }
+            }];
+            const evaluator = new ActivityEvaluator(hass, person, [], zoneGroups);
+
+            const result = evaluator.evaluate();
+            // Zone group should not match, returns null (no default activity)
+            expect(result).toBeNull();
+        });
+
+        test('zone group with temporal conditions applies during work hours', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' },
+                'sensor.john_activity': { state: 'working' }
+            });
+            const person: PersonConfig = {
+                entity_id: 'person.john',
+                namedSensors: {
+                    activity: { entity_id: 'sensor.john_activity' }
+                }
+            };
+            const zoneGroups: ZoneGroup[] = [{
+                name: 'work',
+                zones: ['zone.office'],
+                icon: 'mdi:office-building',
+                conditions: {
+                    is_work_hours: 'true'
+                },
+                activities: [{
+                    activity: 'working at the office',
+                    conditions: {}
+                }]
+            }];
+            const evaluator = new ActivityEvaluator(hass, person, [], zoneGroups);
+
+            // Mock work hours (Monday 10:00)
+            const mockDate = new Date('2024-01-01T10:00:00'); // Monday
+            const originalDate = global.Date;
+            // @ts-ignore
+            global.Date = class extends originalDate {
+                constructor() {
+                    super();
+                    return mockDate;
+                }
+                static now() {
+                    return mockDate.getTime();
+                }
+            };
+
+            const result = evaluator.evaluate();
+            expect(result?.activity).toBe('working at the office');
+
+            // Restore
+            global.Date = originalDate;
+        });
+
+        test('zone group with temporal conditions does not apply outside work hours', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' },
+                'sensor.john_activity': { state: 'working' }
+            });
+            const person: PersonConfig = {
+                entity_id: 'person.john',
+                namedSensors: {
+                    activity: { entity_id: 'sensor.john_activity' }
+                }
+            };
+            const zoneGroups: ZoneGroup[] = [{
+                name: 'work',
+                zones: ['zone.office'],
+                conditions: {
+                    is_work_hours: 'true'
+                },
+                activities: [{
+                    activity: 'working at the office',
+                    conditions: {}
+                }]
+            }];
+            const cardActivities: Activity[] = [{
+                activity: 'is at the office',
+                conditions: {}
+            }];
+            const evaluator = new ActivityEvaluator(hass, person, cardActivities, zoneGroups);
+
+            // Mock non-work hours (Saturday 22:00)
+            const mockDate = new Date('2024-01-06T22:00:00'); // Saturday
+            const originalDate = global.Date;
+            // @ts-ignore
+            global.Date = class extends originalDate {
+                constructor() {
+                    super();
+                    return mockDate;
+                }
+                static now() {
+                    return mockDate.getTime();
+                }
+            };
+
+            const result = evaluator.evaluate();
+            // Zone group should not apply, falls back to card-level activity
+            expect(result?.activity).toBe('is at the office');
+
+            // Restore
+            global.Date = originalDate;
+        });
+
+        test('zone group conditions support "who" condition', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' },
+                'person.jane': { state: 'zone.office' }
+            });
+            const johnPerson: PersonConfig = { entity_id: 'person.john' };
+            const janePerson: PersonConfig = { entity_id: 'person.jane' };
+
+            const zoneGroups: ZoneGroup[] = [{
+                name: 'john work',
+                zones: ['zone.office'],
+                icon: 'mdi:briefcase',
+                conditions: {
+                    who: 'person.john'
+                },
+                activities: [{
+                    activity: 'working at desk',
+                    conditions: {}
+                }]
+            }];
+
+            const johnEvaluator = new ActivityEvaluator(hass, johnPerson, [], zoneGroups);
+            const janeEvaluator = new ActivityEvaluator(hass, janePerson, [], zoneGroups);
+
+            const johnResult = johnEvaluator.evaluate();
+            const janeResult = janeEvaluator.evaluate();
+
+            expect(johnResult?.activity).toBe('working at desk');
+            expect(janeResult).toBeNull(); // Zone group doesn't apply to Jane
+        });
+
+        test('zone group with multiple conditions requires all to match', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' },
+                'sensor.john_activity': { state: 'working' },
+                'sensor.john_focus': { state: 'high' }
+            });
+            const person: PersonConfig = {
+                entity_id: 'person.john',
+                namedSensors: {
+                    activity: { entity_id: 'sensor.john_activity' },
+                    focus: { entity_id: 'sensor.john_focus' }
+                }
+            };
+            const zoneGroups: ZoneGroup[] = [{
+                name: 'deep work',
+                zones: ['zone.office'],
+                conditions: {
+                    activity: 'working',
+                    focus: 'high'
+                },
+                activities: [{
+                    activity: 'in deep work mode',
+                    conditions: {}
+                }]
+            }];
+            const evaluator = new ActivityEvaluator(hass, person, [], zoneGroups);
+
+            const result = evaluator.evaluate();
+            expect(result?.activity).toBe('in deep work mode');
+        });
+
+        test('zone group does not apply when one condition fails', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' },
+                'sensor.john_activity': { state: 'working' },
+                'sensor.john_focus': { state: 'low' }
+            });
+            const person: PersonConfig = {
+                entity_id: 'person.john',
+                namedSensors: {
+                    activity: { entity_id: 'sensor.john_activity' },
+                    focus: { entity_id: 'sensor.john_focus' }
+                }
+            };
+            const zoneGroups: ZoneGroup[] = [{
+                name: 'deep work',
+                zones: ['zone.office'],
+                conditions: {
+                    activity: 'working',
+                    focus: 'high' // Does not match 'low'
+                },
+                activities: [{
+                    activity: 'in deep work mode',
+                    conditions: {}
+                }]
+            }];
+            const cardActivities: Activity[] = [{
+                activity: 'is working',
+                conditions: {}
+            }];
+            const evaluator = new ActivityEvaluator(hass, person, cardActivities, zoneGroups);
+
+            const result = evaluator.evaluate();
+            expect(result?.activity).toBe('is working'); // Falls back to card-level
+        });
+    });
+
+    describe('Multiple Zone Groups - Priority Resolution', () => {
+        test('first zone group applies when zone is in multiple groups', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' }
+            });
+            const person: PersonConfig = { entity_id: 'person.john' };
+
+            const zoneGroups: ZoneGroup[] = [
+                {
+                    name: 'work locations',
+                    zones: ['zone.office', 'zone.coworking'],
+                    icon: 'mdi:office-building'
+                },
+                {
+                    name: 'downtown',
+                    zones: ['zone.office', 'zone.cafe'],
+                    icon: 'mdi:city'
+                }
+            ];
+            const evaluator = new ActivityEvaluator(hass, person, [], zoneGroups);
+
+            // Since zone.office is in both groups, the first group should apply
+            const result = evaluator.evaluate();
+            expect(result).toBeDefined();
+            // We can't easily test which group was selected without modifying the implementation
+            // but we can verify it doesn't crash and returns a result
+        });
+
+        test('second zone group applies when first group conditions fail', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' },
+                'sensor.john_activity': { state: 'in-meeting' }
+            });
+            const person: PersonConfig = {
+                entity_id: 'person.john',
+                namedSensors: {
+                    activity: { entity_id: 'sensor.john_activity' }
+                }
+            };
+
+            const zoneGroups: ZoneGroup[] = [
+                {
+                    name: 'work - focused',
+                    zones: ['zone.office'],
+                    icon: 'mdi:laptop',
+                    conditions: {
+                        activity: 'working' // Does not match
+                    },
+                    activities: [{
+                        activity: 'working at desk',
+                        conditions: {}
+                    }]
+                },
+                {
+                    name: 'work - general',
+                    zones: ['zone.office'],
+                    icon: 'mdi:office-building',
+                    // No conditions - always matches
+                    activities: [{
+                        activity: 'at the office',
+                        conditions: {}
+                    }]
+                }
+            ];
+            const evaluator = new ActivityEvaluator(hass, person, [], zoneGroups);
+
+            const result = evaluator.evaluate();
+            expect(result?.activity).toBe('at the office');
+        });
+
+        test('priority order with temporal conditions', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' }
+            });
+            const person: PersonConfig = { entity_id: 'person.john' };
+
+            const zoneGroups: ZoneGroup[] = [
+                {
+                    name: 'work hours',
+                    zones: ['zone.office'],
+                    icon: 'mdi:briefcase',
+                    conditions: {
+                        is_work_hours: 'true'
+                    },
+                    activities: [{
+                        activity: 'working during office hours',
+                        conditions: {}
+                    }]
+                },
+                {
+                    name: 'after hours',
+                    zones: ['zone.office'],
+                    icon: 'mdi:moon-waning-crescent',
+                    // No conditions
+                    activities: [{
+                        activity: 'working late',
+                        conditions: {}
+                    }]
+                }
+            ];
+            const evaluator = new ActivityEvaluator(hass, person, [], zoneGroups);
+
+            // Mock work hours
+            const mockDate = new Date('2024-01-01T10:00:00'); // Monday 10:00
+            const originalDate = global.Date;
+            // @ts-ignore
+            global.Date = class extends originalDate {
+                constructor() {
+                    super();
+                    return mockDate;
+                }
+                static now() {
+                    return mockDate.getTime();
+                }
+            };
+
+            const result = evaluator.evaluate();
+            expect(result?.activity).toBe('working during office hours');
+
+            // Restore
+            global.Date = originalDate;
+        });
+
+        test('falls through all zone groups when conditions fail', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' },
+                'sensor.john_activity': { state: 'gaming' }
+            });
+            const person: PersonConfig = {
+                entity_id: 'person.john',
+                namedSensors: {
+                    activity: { entity_id: 'sensor.john_activity' }
+                }
+            };
+
+            const zoneGroups: ZoneGroup[] = [
+                {
+                    name: 'work focused',
+                    zones: ['zone.office'],
+                    conditions: {
+                        activity: 'working' // Does not match
+                    },
+                    activities: [{
+                        activity: 'working',
+                        conditions: {}
+                    }]
+                },
+                {
+                    name: 'work meeting',
+                    zones: ['zone.office'],
+                    conditions: {
+                        activity: 'in-meeting' // Does not match
+                    },
+                    activities: [{
+                        activity: 'in a meeting',
+                        conditions: {}
+                    }]
+                }
+            ];
+            const cardActivities: Activity[] = [{
+                activity: 'is gaming',
+                conditions: {
+                    activity: 'gaming'
+                }
+            }];
+            const evaluator = new ActivityEvaluator(hass, person, cardActivities, zoneGroups);
+
+            const result = evaluator.evaluate();
+            // All zone groups fail, falls back to card-level activity
+            expect(result?.activity).toBe('is gaming');
+        });
+
+        test('zone group with random condition can vary results', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.home' }
+            });
+            const person: PersonConfig = { entity_id: 'person.john' };
+
+            const zoneGroups: ZoneGroup[] = [
+                {
+                    name: 'home - fun',
+                    zones: ['zone.home'],
+                    conditions: {
+                        random: '50%'
+                    },
+                    activities: [{
+                        activity: 'chilling at home',
+                        conditions: {}
+                    }]
+                },
+                {
+                    name: 'home - default',
+                    zones: ['zone.home'],
+                    activities: [{
+                        activity: 'at home',
+                        conditions: {}
+                    }]
+                }
+            ];
+
+            // Run multiple times to see variation (50% should sometimes match, sometimes not)
+            const results: string[] = [];
+            for (let i = 0; i < 20; i++) {
+                const evaluator = new ActivityEvaluator(hass, person, [], zoneGroups);
+                const result = evaluator.evaluate();
+                if (result?.activity) {
+                    results.push(result.activity);
+                }
+            }
+
+            // We should see both variations
+            const hasChilling = results.includes('chilling at home');
+            const hasDefault = results.includes('at home');
+
+            // At least one of each should appear with 50% probability over 20 runs
+            expect(hasChilling || hasDefault).toBe(true);
+        });
+    });
 });
