@@ -1,0 +1,126 @@
+# Example: Zone Group Activities Configuration
+# This demonstrates how to use activity overrides in zone groups
+
+type: custom:whereabouts-card
+show_title: true
+title: "Family Status"
+default_activity: "is"
+default_preposition: "at"
+
+persons:
+  - entity_id: person.john
+    namedSensors:
+      activity:
+        entity_id: sensor.john_activity
+      calendar:
+        entity_id: calendar.john_work
+      charging:
+        entity_id: binary_sensor.john_phone_charging
+
+  - entity_id: person.jane
+    namedSensors:
+      activity:
+        entity_id: sensor.jane_activity
+      calendar:
+        entity_id: calendar.jane_work
+
+# Zone Groups with Activity Overrides
+zone_groups:
+  # Work locations with work-specific activities
+  - name: "work"
+    zones:
+      - zone.office
+      - zone.coworking_space
+      - zone.client_site
+    icon: "mdi:office-building"
+    preposition: "at"
+    show_preposition: true
+    activities:
+      # These activities only apply when in work zones
+      - activity: "in a meeting"
+        icon: "mdi:account-group"
+        show_location: false
+        conditions:
+          calendar: "busy"
+
+      - activity: "working at desk"
+        icon: "mdi:laptop"
+        conditions:
+          activity: "working"
+          is_work_hours: "true"
+
+      - activity: "on a break"
+        icon: "mdi:coffee"
+        conditions:
+          activity: "idle"
+          when: ["morning", "afternoon"]
+
+  # Gym locations with workout-specific activities
+  - name: "gym"
+    zones:
+      - zone.gym_downtown
+      - zone.gym_north
+    icon: "mdi:dumbbell"
+    preposition: "at"
+    activities:
+      - activity: "working out"
+        icon: "mdi:weight-lifter"
+        show_preposition: false
+        conditions:
+          activity: "exercising"
+
+      - activity: "warming up"
+        icon: "mdi:run"
+        conditions:
+          activity: "walking"
+
+  # Home with home-specific activities
+  - name: "home"
+    zones:
+      - zone.home
+    icon: "mdi:home"
+    show_preposition: false
+    activities:
+      - activity: "charging phone"
+        icon: "mdi:battery-charging"
+        show_location: false
+        conditions:
+          charging: "on"
+          activity: "stationary"
+
+      - activity: "sleeping"
+        icon: "mdi:power-sleep"
+        show_location: false
+        conditions:
+          activity: "sleeping"
+          when: "night"
+
+# Card-level activities (fallback for all zones)
+activities:
+  # General activities that apply anywhere
+  - activity: "is working"
+    icon: "mdi:briefcase"
+    conditions:
+      activity: "working"
+
+  - activity: "is commuting"
+    icon: "mdi:car"
+    show_preposition: false
+    conditions:
+      activity: "driving"
+
+  - activity: "is walking"
+    icon: "mdi:walk"
+    conditions:
+      activity: "walking"
+
+# Activity Evaluation Order:
+# 1. Zone Group activities (if person is in a zone group)
+# 2. Card-level activities (fallback)
+# 3. Default activity (final fallback)
+#
+# Example: If John is at zone.office (in "work" group):
+# - First checks work zone group activities
+# - If calendar is "busy", shows "in a meeting"
+# - Otherwise, if activity is "working" during work hours, shows "working at desk"
+# - If no zone group activities match, falls back to card-level "is working"

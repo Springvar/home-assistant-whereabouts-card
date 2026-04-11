@@ -105,10 +105,52 @@ export class ActivityEvaluator {
 
     /**
      * Evaluates activities top-to-bottom and returns the first matching activity
+     * Priority: 1) Zone Group activities (if in group), 2) Card-level activities
      * Returns null if no activity matches
      */
     evaluate(): EvaluatedActivity | null {
-        for (const activity of this.activities) {
+        // First, check if person is in a zone group and evaluate zone group activities
+        const zoneGroup = this.getCurrentZoneGroup();
+        if (zoneGroup?.activities && zoneGroup.activities.length > 0) {
+            const result = this.evaluateActivities(zoneGroup.activities);
+            if (result) {
+                return result;
+            }
+        }
+
+        // Fall back to card-level activities
+        return this.evaluateActivities(this.activities);
+    }
+
+    /**
+     * Get the zone group that the person is currently in (if any)
+     */
+    private getCurrentZoneGroup(): ZoneGroup | null {
+        const personEntity = this.hass.states[this.person.entity_id];
+        if (!personEntity) return null;
+
+        const personState = personEntity.state; // e.g., "office", "home"
+
+        // Construct full zone entity ID
+        let zoneEntityId = personState.startsWith('zone.')
+            ? personState
+            : `zone.${personState.toLowerCase().replace(/\s+/g, '_')}`;
+
+        // Check each zone group to see if current zone is in it
+        for (const group of this.zoneGroups) {
+            if (group.zones.includes(zoneEntityId) || group.zones.includes(personState)) {
+                return group;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Evaluate a list of activities and return the first match
+     */
+    private evaluateActivities(activities: Activity[]): EvaluatedActivity | null {
+        for (const activity of activities) {
             if (this.evaluateActivity(activity)) {
                 const activityText = activity.activity || activity.verb || '';
                 // Backward compatibility: treat location_override: '-' as show_location: false

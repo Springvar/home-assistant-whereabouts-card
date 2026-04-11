@@ -17,6 +17,7 @@ export interface ZoneGroup {
     show_preposition?: boolean;
     override_location?: boolean;
     icon?: string;
+    activities?: Activity[];
 }
 
 export interface WhereaboutsCardConfig {

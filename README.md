@@ -331,8 +331,51 @@ zone_groups:
 | `preposition` | Custom preposition for this group | Card's default_preposition | String |
 | `show_preposition` | Show preposition before location | `true` | Boolean |
 | `override_location` | Replace zone name with group name | `true` | Boolean |
+| `activities` | Zone-specific activity overrides | `undefined` | Array of activity objects (see below) |
 
 **Note:** Set `override_location: false` to keep the original zone names while still applying the group's preposition and icon. This is useful when you want to group zones for preposition/icon consistency without losing the specific zone names (e.g., "Office", "Laboratory" both use "at" preposition and work icon, but keep their individual names).
+
+**Zone Group Activities:**
+
+Zone groups can define their own activities that only apply when a person is in one of the group's zones. These activities take priority over card-level activities, allowing location-specific behavior:
+
+```yaml
+zone_groups:
+  - name: "work"
+    zones:
+      - zone.office
+      - zone.coworking_space
+    icon: "mdi:office-building"
+    preposition: "at"
+    activities:
+      - activity: "in a meeting"
+        icon: "mdi:account-group"
+        show_location: false
+        conditions:
+          calendar: "busy"
+      - activity: "working"
+        icon: "mdi:laptop"
+        conditions:
+          activity: "working"
+          is_work_hours: "true"
+  - name: "gym"
+    zones:
+      - zone.gym_downtown
+      - zone.gym_north
+    activities:
+      - activity: "working out"
+        icon: "mdi:dumbbell"
+        show_preposition: false
+        conditions:
+          when: ["morning", "evening"]
+```
+
+**Activity Evaluation Priority:**
+1. **Zone Group activities** - Evaluated first if person is in a zone belonging to a zone group
+2. **Card-level activities** - Fallback if no zone group activity matches
+3. **Default activity** - Final fallback if no activities match
+
+This allows you to define general activities at the card level while having location-specific overrides. For example, a card-level activity might show "is working" anywhere, but a zone group activity can override it to show "in a meeting" specifically when at the office and the calendar shows "busy".
 
 **Icon Precedence:**
 1. Activity icon (if activity detected)
@@ -459,6 +502,43 @@ zone_groups:
       - zone.home
     icon: "mdi:home"
     show_preposition: false
+```
+
+**With Zone Group Activity Overrides:**
+
+```yaml
+type: custom:whereabouts-card
+persons:
+  - entity_id: person.john
+    namedSensors:
+      activity:
+        entity_id: sensor.john_activity
+      calendar:
+        entity_id: calendar.john_work
+zone_groups:
+  - name: "work"
+    zones:
+      - zone.office
+      - zone.coworking_space
+    icon: "mdi:office-building"
+    preposition: "at"
+    activities:
+      # Zone-specific activities only apply when in these zones
+      - activity: "in a meeting"
+        icon: "mdi:account-group"
+        show_location: false
+        conditions:
+          calendar: "busy"
+      - activity: "working at desk"
+        icon: "mdi:laptop"
+        conditions:
+          activity: "working"
+# Card-level activities as fallback
+activities:
+  - activity: "is working"
+    icon: "mdi:briefcase"
+    conditions:
+      activity: "working"
 ```
 
 **With Conditional Visibility:**

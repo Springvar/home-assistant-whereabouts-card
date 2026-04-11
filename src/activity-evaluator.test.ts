@@ -499,4 +499,195 @@ describe('ActivityEvaluator', () => {
 
         expect(evaluator.evaluate()).toBeNull();
     });
+
+    describe('Zone Group Activities', () => {
+        test('zone group activities take priority over card-level activities', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' },
+                'sensor.john_activity': { state: 'working' }
+            });
+            const person: PersonConfig = {
+                entity_id: 'person.john',
+                namedSensors: {
+                    activity: { entity_id: 'sensor.john_activity' }
+                }
+            };
+            const zoneGroups: ZoneGroup[] = [{
+                name: 'work',
+                zones: ['zone.office', 'zone.coworking'],
+                activities: [{
+                    activity: 'at the office',
+                    icon: 'mdi:office-building',
+                    conditions: { activity: 'working' }
+                }]
+            }];
+            const cardActivities: Activity[] = [{
+                activity: 'is working',
+                icon: 'mdi:briefcase',
+                conditions: { activity: 'working' }
+            }];
+            const evaluator = new ActivityEvaluator(hass, person, cardActivities, zoneGroups);
+
+            const result = evaluator.evaluate();
+            // Zone group activity should win
+            expect(result).toEqual({
+                activity: 'at the office',
+                icon: 'mdi:office-building',
+                location_override: undefined,
+                show_location: undefined,
+                preposition: undefined,
+                show_preposition: undefined
+            });
+        });
+
+        test('falls back to card-level activities when zone group activity does not match', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' },
+                'sensor.john_activity': { state: 'in-meeting' }
+            });
+            const person: PersonConfig = {
+                entity_id: 'person.john',
+                namedSensors: {
+                    activity: { entity_id: 'sensor.john_activity' }
+                }
+            };
+            const zoneGroups: ZoneGroup[] = [{
+                name: 'work',
+                zones: ['zone.office', 'zone.coworking'],
+                activities: [{
+                    activity: 'at desk',
+                    conditions: { activity: 'working' } // Won't match
+                }]
+            }];
+            const cardActivities: Activity[] = [{
+                activity: 'in a meeting',
+                icon: 'mdi:account-group',
+                conditions: { activity: 'in-meeting' }
+            }];
+            const evaluator = new ActivityEvaluator(hass, person, cardActivities, zoneGroups);
+
+            const result = evaluator.evaluate();
+            // Card-level activity should win since zone group activity didn't match
+            expect(result).toEqual({
+                activity: 'in a meeting',
+                icon: 'mdi:account-group',
+                location_override: undefined,
+                show_location: undefined,
+                preposition: undefined,
+                show_preposition: undefined
+            });
+        });
+
+        test('uses card-level activities when person is not in any zone group', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.home' },
+                'sensor.john_activity': { state: 'relaxing' }
+            });
+            const person: PersonConfig = {
+                entity_id: 'person.john',
+                namedSensors: {
+                    activity: { entity_id: 'sensor.john_activity' }
+                }
+            };
+            const zoneGroups: ZoneGroup[] = [{
+                name: 'work',
+                zones: ['zone.office'], // Does not include home
+                activities: [{
+                    activity: 'at the office',
+                    conditions: { activity: 'relaxing' }
+                }]
+            }];
+            const cardActivities: Activity[] = [{
+                activity: 'is relaxing',
+                icon: 'mdi:sofa',
+                conditions: { activity: 'relaxing' }
+            }];
+            const evaluator = new ActivityEvaluator(hass, person, cardActivities, zoneGroups);
+
+            const result = evaluator.evaluate();
+            // Card-level activity should be used (not in zone group)
+            expect(result).toEqual({
+                activity: 'is relaxing',
+                icon: 'mdi:sofa',
+                location_override: undefined,
+                show_location: undefined,
+                preposition: undefined,
+                show_preposition: undefined
+            });
+        });
+
+        test('matches zone without zone. prefix', () => {
+            const hass = createHass({
+                'person.john': { state: 'office' }, // Without zone. prefix
+                'sensor.john_activity': { state: 'working' }
+            });
+            const person: PersonConfig = {
+                entity_id: 'person.john',
+                namedSensors: {
+                    activity: { entity_id: 'sensor.john_activity' }
+                }
+            };
+            const zoneGroups: ZoneGroup[] = [{
+                name: 'work',
+                zones: ['zone.office'],
+                activities: [{
+                    activity: 'working at office',
+                    conditions: { activity: 'working' }
+                }]
+            }];
+            const cardActivities: Activity[] = [{
+                activity: 'is working',
+                conditions: { activity: 'working' }
+            }];
+            const evaluator = new ActivityEvaluator(hass, person, cardActivities, zoneGroups);
+
+            const result = evaluator.evaluate();
+            expect(result?.activity).toBe('working at office');
+        });
+
+        test('zone group activities can use all condition types', () => {
+            const hass = createHass({
+                'person.john': { state: 'zone.office' },
+                'sensor.john_activity': { state: 'working' }
+            });
+            const person: PersonConfig = {
+                entity_id: 'person.john',
+                namedSensors: {
+                    activity: { entity_id: 'sensor.john_activity' }
+                }
+            };
+            const zoneGroups: ZoneGroup[] = [{
+                name: 'work',
+                zones: ['zone.office'],
+                activities: [{
+                    activity: 'working during office hours',
+                    conditions: {
+                        activity: 'working',
+                        when: 'morning'
+                    }
+                }]
+            }];
+            const evaluator = new ActivityEvaluator(hass, person, [], zoneGroups);
+
+            // Mock morning time
+            const mockDate = new Date('2024-01-01T09:00:00');
+            const originalDate = global.Date;
+            // @ts-ignore
+            global.Date = class extends originalDate {
+                constructor() {
+                    super();
+                    return mockDate;
+                }
+                static now() {
+                    return mockDate.getTime();
+                }
+            };
+
+            const result = evaluator.evaluate();
+            expect(result?.activity).toBe('working during office hours');
+
+            // Restore
+            global.Date = originalDate;
+        });
+    });
 });

@@ -292,7 +292,22 @@
                 default_preposition: 'at',
                 zone_groups: [
                     { name: 'home', zones: ['zone.home'], show_preposition: false },
-                    { zones: ['zone.office', 'zone.gym'], preposition: 'at the' },
+                    {
+                        name: 'work/recreation',
+                        zones: ['zone.office', 'zone.gym'],
+                        preposition: 'at the',
+                        activities: [
+                            {
+                                activity: 'working',
+                                icon: 'mdi:laptop',
+                                show_location: true,
+                                conditions: {
+                                    where: 'zone.office',
+                                    detected_activity: 'still'
+                                }
+                            }
+                        ]
+                    },
                     { zones: ['zone.doghouse'], preposition: 'near the' }
                 ],
                 activities: [

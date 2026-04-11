@@ -260,14 +260,38 @@ export class WhereaboutsCardEditor extends LitElement {
   updated(changedProperties: Map<string, any>) {
     super.updated(changedProperties);
 
-    // Update all activity tristate checkboxes
-    this.shadowRoot?.querySelectorAll('.tristate-checkbox[data-activity-idx]').forEach((checkbox) => {
+    // Update all card-level activity tristate checkboxes (without zone-group-idx)
+    this.shadowRoot?.querySelectorAll('.tristate-checkbox[data-activity-idx]:not([data-zone-group-idx])').forEach((checkbox) => {
       const cb = checkbox as HTMLInputElement;
       const idx = parseInt(cb.getAttribute('data-activity-idx') || '-1');
       const field = cb.getAttribute('data-tristate-field');
 
       if (idx >= 0 && field && this._config.activities?.[idx]) {
         const activity = this._config.activities[idx];
+        const value = field === 'show_location' ? activity.show_location : activity.show_preposition;
+
+        if (value === undefined) {
+          cb.checked = false;
+          cb.indeterminate = true;
+        } else if (value === true) {
+          cb.indeterminate = false;
+          cb.checked = true;
+        } else {
+          cb.indeterminate = false;
+          cb.checked = false;
+        }
+      }
+    });
+
+    // Update all zone group activity tristate checkboxes
+    this.shadowRoot?.querySelectorAll('.tristate-checkbox[data-zone-group-idx][data-activity-idx]').forEach((checkbox) => {
+      const cb = checkbox as HTMLInputElement;
+      const gidx = parseInt(cb.getAttribute('data-zone-group-idx') || '-1');
+      const aidx = parseInt(cb.getAttribute('data-activity-idx') || '-1');
+      const field = cb.getAttribute('data-tristate-field');
+
+      if (gidx >= 0 && aidx >= 0 && field && this._config.zone_groups?.[gidx]?.activities?.[aidx]) {
+        const activity = this._config.zone_groups[gidx].activities![aidx];
         const value = field === 'show_location' ? activity.show_location : activity.show_preposition;
 
         if (value === undefined) {
@@ -785,6 +809,147 @@ export class WhereaboutsCardEditor extends LitElement {
   }
                 </ul>
               </div>
+
+              <!-- Zone Group Activities -->
+              <details style="margin-top: 1em; border-top: 1px solid #eee; padding-top: 0.5em;">
+                <summary style="cursor: pointer; font-weight: bold; color: #555;">
+                  Activities (${(group.activities ?? []).length})
+                </summary>
+                <p style="font-size: 0.85em; color: #666; margin: 0.5em 0;">
+                  Activities defined here only apply when a person is in this zone group and take priority over card-level activities.
+                </p>
+                <div style="margin-top: 0.5em;">
+                  ${(group.activities ?? []).map((activity, aidx) => html`
+                    <details style="margin-bottom:1em; border: 1px solid #ccc; padding: 0.5em; border-radius: 4px;">
+                      <summary style="cursor: pointer; font-weight: bold;">
+                        ${activity.activity || activity.verb || `Activity ${aidx + 1}`}
+                        ${aidx > 0 ? html`<button @click=${(e: Event) => { e.preventDefault(); e.stopPropagation(); this._moveZoneGroupActivityUp(gidx, aidx); }} title="Move Up">↑</button>` : ''}
+                        ${aidx < (group.activities?.length ?? 0) - 1 ? html`<button @click=${(e: Event) => { e.preventDefault(); e.stopPropagation(); this._moveZoneGroupActivityDown(gidx, aidx); }} title="Move Down">↓</button>` : ''}
+                        <button @click=${(e: Event) => { e.preventDefault(); e.stopPropagation(); this._removeZoneGroupActivity(gidx, aidx); }}>Remove</button>
+                      </summary>
+                      <div style="margin-top: 0.5em;">
+                        <div>
+                          <label>Activity:</label>
+                          <input
+                            type="text"
+                            .value=${activity.activity || activity.verb || ''}
+                            @input=${(e: Event) => this._zoneGroupActivityChanged(gidx, aidx, e)}
+                            placeholder="Activity (e.g., in a meeting)"
+                          />
+                        </div>
+                        <div>
+                          <label>
+                            <input
+                              type="checkbox"
+                              class="tristate-checkbox"
+                              data-zone-group-idx="${gidx}"
+                              data-activity-idx="${aidx}"
+                              data-tristate-field="show_location"
+                              @click=${(e: Event) => this._zoneGroupActivityShowLocationChanged(gidx, aidx, e)}
+                            />
+                            Show location
+                          </label>
+                        </div>
+                        ${activity.show_location !== false ? html`
+                        <div style="margin-left: 1.5em; margin-top: 0.5em; display: flex; align-items: flex-start; gap: 8px;">
+                          <label style="flex-shrink: 0;">Location (override):</label>
+                          <input
+                            type="text"
+                            .value=${activity.location_override || ''}
+                            @input=${(e: Event) => this._zoneGroupActivityLocationOverrideChanged(gidx, aidx, e)}
+                            placeholder="(optional, custom text)"
+                            style="flex: 1; min-width: 150px; box-sizing: border-box;"
+                          />
+                        </div>
+                        ` : ''}
+                        <div>
+                          <label>
+                            <input
+                              type="checkbox"
+                              class="tristate-checkbox"
+                              data-zone-group-idx="${gidx}"
+                              data-activity-idx="${aidx}"
+                              data-tristate-field="show_preposition"
+                              @click=${(e: Event) => this._zoneGroupActivityShowPrepositionChanged(gidx, aidx, e)}
+                            />
+                            Show preposition
+                          </label>
+                        </div>
+                        ${activity.show_preposition !== false ? html`
+                        <div style="margin-left: 1.5em; margin-top: 0.5em; display: flex; align-items: flex-start; gap: 8px;">
+                          <label style="flex-shrink: 0;">Preposition:</label>
+                          <input
+                            type="text"
+                            .value=${activity.preposition || ''}
+                            @input=${(e: Event) => this._zoneGroupActivityPrepositionChanged(gidx, aidx, e)}
+                            placeholder="(optional, e.g., from, near)"
+                            style="flex: 1; min-width: 100px; box-sizing: border-box;"
+                          />
+                        </div>
+                        ` : ''}
+                        <div style="display: flex; align-items: flex-start; gap: 8px;">
+                          <label style="flex-shrink: 0;">Icon (optional):</label>
+                          <div style="flex: 1; min-width: 150px;">
+                            ${this._renderIconPicker(
+                              activity.icon || '',
+                              'e.g., mdi:account-group',
+                              (value) => {
+                                const groups = [...(this._config.zone_groups || [])];
+                                const activities = [...(groups[gidx].activities || [])];
+                                activities[aidx] = { ...activities[aidx], icon: value || undefined };
+                                groups[gidx] = { ...groups[gidx], activities };
+                                this._config = { ...this._config, zone_groups: groups };
+                                this._emitConfigChanged();
+                              }
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <strong>Conditions</strong>
+                          <p style="font-size: 0.9em; color: #666; margin-top: 0.25em;">
+                            All conditions must match for this activity to apply.
+                          </p>
+                          <div>
+                            ${Object.entries(activity.conditions || {}).map(([key, value]) => {
+                              const validation = this.validateConditionValue(key, value);
+                              return html`
+                              <div style="margin-bottom: 0.5em;">
+                                <div style="display: flex; gap: 0.5em; align-items: center;">
+                                  <input
+                                    type="text"
+                                    value="${key}"
+                                    placeholder="condition key"
+                                    list="activity-condition-suggestions"
+                                    style="width: 120px;"
+                                    @blur=${(e: Event) => this._updateZoneGroupActivityConditionKey(gidx, aidx, key, (e.target as HTMLInputElement).value)}
+                                  />
+                                  <input
+                                    type="text"
+                                    value="${Array.isArray(value) ? value.join(', ') : value}"
+                                    placeholder="value (comma-separated for multiple)"
+                                    style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+                                    @blur=${(e: Event) => this._updateZoneGroupActivityConditionValue(gidx, aidx, key, (e.target as HTMLInputElement).value)}
+                                  />
+                                  <button class="icon-button" @click=${() => this._removeZoneGroupActivityCondition(gidx, aidx, key)} title="Remove">🗑️</button>
+                                </div>
+                                ${!validation.valid ? html`
+                                  <div style="margin-left: 130px; margin-top: 0.25em; color: #ff9800; font-size: 0.85em;" title="${validation.error}">
+                                    ⚠️ ${validation.error}
+                                  </div>
+                                ` : ''}
+                              </div>
+                            `;
+                            })}
+                          </div>
+                          <button @click=${() => this._addZoneGroupActivityCondition(gidx, aidx)} style="margin-top: 0.5em;">+ Add Condition</button>
+                        </div>
+                      </div>
+                    </details>
+                  `)}
+                </div>
+                <button @click=${() => this._addZoneGroupActivity(gidx)} style="margin-top: 0.5em;">Add Activity</button>
+              </details>
+
               </div>
             </details>
           `;})}
@@ -1450,6 +1615,220 @@ export class WhereaboutsCardEditor extends LitElement {
   _removeZoneFromGroup(gidx: number, zidx: number) {
     const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
     groups[gidx] = { ...groups[gidx], zones: groups[gidx].zones.filter((_, i) => i !== zidx) };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  // Zone Group Activity Methods
+  _addZoneGroupActivity(gidx: number) {
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const activities = [...(groups[gidx].activities ?? []), { activity: '', conditions: {}, show_preposition: false }];
+    groups[gidx] = { ...groups[gidx], activities };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _removeZoneGroupActivity(gidx: number, aidx: number) {
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const activities = (groups[gidx].activities ?? []).filter((_, i) => i !== aidx);
+    groups[gidx] = { ...groups[gidx], activities: activities.length > 0 ? activities : undefined };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _moveZoneGroupActivityUp(gidx: number, aidx: number) {
+    if (aidx === 0) return;
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const activities = [...(groups[gidx].activities ?? [])];
+    [activities[aidx - 1], activities[aidx]] = [activities[aidx], activities[aidx - 1]];
+    groups[gidx] = { ...groups[gidx], activities };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _moveZoneGroupActivityDown(gidx: number, aidx: number) {
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const activities = [...(groups[gidx].activities ?? [])];
+    if (aidx >= activities.length - 1) return;
+    [activities[aidx], activities[aidx + 1]] = [activities[aidx + 1], activities[aidx]];
+    groups[gidx] = { ...groups[gidx], activities };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _zoneGroupActivityChanged(gidx: number, aidx: number, e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const activities = [...(groups[gidx].activities ?? [])];
+    activities[aidx] = { ...activities[aidx], activity: value };
+    groups[gidx] = { ...groups[gidx], activities };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _zoneGroupActivityLocationOverrideChanged(gidx: number, aidx: number, e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const activities = [...(groups[gidx].activities ?? [])];
+    activities[aidx] = { ...activities[aidx], location_override: value || undefined };
+    groups[gidx] = { ...groups[gidx], activities };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _zoneGroupActivityPrepositionChanged(gidx: number, aidx: number, e: Event) {
+    const value = (e.target as HTMLInputElement).value;
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const activities = [...(groups[gidx].activities ?? [])];
+    activities[aidx] = { ...activities[aidx], preposition: value || undefined };
+    groups[gidx] = { ...groups[gidx], activities };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _zoneGroupActivityShowLocationChanged(gidx: number, aidx: number, e: Event) {
+    const checkbox = e.target as HTMLInputElement;
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const activities = [...(groups[gidx].activities ?? [])];
+
+    const currentValue = activities[aidx].show_location;
+    let newValue: boolean | undefined;
+
+    if (currentValue === undefined) {
+      newValue = true;
+    } else if (currentValue === true) {
+      newValue = false;
+    } else {
+      newValue = undefined;
+    }
+
+    activities[aidx] = { ...activities[aidx], show_location: newValue };
+    groups[gidx] = { ...groups[gidx], activities };
+    this._config = { ...this._config, zone_groups: groups };
+
+    if (newValue === undefined) {
+      checkbox.checked = false;
+      checkbox.indeterminate = true;
+    } else if (newValue === true) {
+      checkbox.checked = true;
+      checkbox.indeterminate = false;
+    } else {
+      checkbox.indeterminate = false;
+      checkbox.checked = false;
+    }
+
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _zoneGroupActivityShowPrepositionChanged(gidx: number, aidx: number, e: Event) {
+    const checkbox = e.target as HTMLInputElement;
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const activities = [...(groups[gidx].activities ?? [])];
+
+    const currentValue = activities[aidx].show_preposition;
+    let newValue: boolean | undefined;
+
+    if (currentValue === undefined) {
+      newValue = true;
+    } else if (currentValue === true) {
+      newValue = false;
+    } else {
+      newValue = undefined;
+    }
+
+    activities[aidx] = { ...activities[aidx], show_preposition: newValue };
+    groups[gidx] = { ...groups[gidx], activities };
+    this._config = { ...this._config, zone_groups: groups };
+
+    if (newValue === undefined) {
+      checkbox.checked = false;
+      checkbox.indeterminate = true;
+    } else if (newValue === true) {
+      checkbox.checked = true;
+      checkbox.indeterminate = false;
+    } else {
+      checkbox.indeterminate = false;
+      checkbox.checked = false;
+    }
+
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _addZoneGroupActivityCondition(gidx: number, aidx: number) {
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const activities = [...(groups[gidx].activities ?? [])];
+    const conditions = { ...(activities[aidx].conditions || {}) };
+
+    let counter = 1;
+    while (conditions[`condition${counter}`]) {
+      counter++;
+    }
+
+    conditions[`condition${counter}`] = '';
+    activities[aidx] = { ...activities[aidx], conditions };
+    groups[gidx] = { ...groups[gidx], activities };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _updateZoneGroupActivityConditionKey(gidx: number, aidx: number, oldKey: string, newKey: string) {
+    if (!newKey.trim() || newKey === oldKey) return;
+
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const activities = [...(groups[gidx].activities ?? [])];
+    const conditions = { ...(activities[aidx].conditions || {}) };
+
+    if (conditions[newKey.trim()] && newKey.trim() !== oldKey) {
+      alert('A condition with this key already exists');
+      return;
+    }
+
+    const value = conditions[oldKey];
+    delete conditions[oldKey];
+    conditions[newKey.trim()] = value;
+
+    activities[aidx] = { ...activities[aidx], conditions };
+    groups[gidx] = { ...groups[gidx], activities };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _updateZoneGroupActivityConditionValue(gidx: number, aidx: number, key: string, valueStr: string) {
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const activities = [...(groups[gidx].activities ?? [])];
+    const conditions = { ...(activities[aidx].conditions || {}) };
+
+    const value = valueStr.includes(',')
+      ? valueStr.split(',').map(v => v.trim()).filter(v => v)
+      : valueStr.trim();
+
+    conditions[key] = value;
+    activities[aidx] = { ...activities[aidx], conditions };
+    groups[gidx] = { ...groups[gidx], activities };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _removeZoneGroupActivityCondition(gidx: number, aidx: number, key: string) {
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const activities = [...(groups[gidx].activities ?? [])];
+    const conditions = { ...(activities[aidx].conditions || {}) };
+    delete conditions[key];
+    activities[aidx] = { ...activities[aidx], conditions };
+    groups[gidx] = { ...groups[gidx], activities };
     this._config = { ...this._config, zone_groups: groups };
     this.requestUpdate();
     this._emitConfigChanged();
