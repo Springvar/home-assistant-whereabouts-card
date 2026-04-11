@@ -1170,7 +1170,7 @@ export class WhereaboutsCardEditor extends LitElement {
                             <!-- Content -->
                             <div class="box-layer box-content">
                               <div class="box-label">content</div>
-                              <div style="display: flex; align-items: flex-start; justify-content: center; gap: 3px; padding: 5px 2px;">
+                              <div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: center; gap: 3px; padding: 5px 2px;">
                                 <!-- Avatar column -->
                                 <div style="display: flex; flex-direction: column; align-items: center; gap: 1px;">
                                   <div
@@ -1185,15 +1185,17 @@ export class WhereaboutsCardEditor extends LitElement {
                                       <path d="M 8 44 Q 8 32 24 32 Q 40 32 40 44 Z" fill="#2196F3"/>
                                     </svg>
                                   </div>
-                                  <div style="display: flex; flex-direction: column; align-items: center;">
-                                    <label style="font-size: 0.55em; color: #666; margin-bottom: 1px; white-space: nowrap;">Size</label>
-                                    <input type="text"
-                                      class="spacing-input"
-                                      style="position: static; transform: none; width: 20px;"
-                                      .value=${this._config.style?.avatar_size || ''}
-                                      @input=${this._styleChanged('avatar_size')}
-                                      placeholder="38px" />
-                                  </div>
+                                  ${this._config.show_avatars ? html`
+                                    <div style="display: flex; flex-direction: column; align-items: center;">
+                                      <label style="font-size: 0.55em; color: #666; margin-bottom: 1px; white-space: nowrap;">Size</label>
+                                      <input type="text"
+                                        class="spacing-input"
+                                        style="position: static; transform: none; width: 20px;"
+                                        .value=${this._config.style?.avatar_size || ''}
+                                        @input=${this._styleChanged('avatar_size')}
+                                        placeholder="38px" />
+                                    </div>
+                                  ` : ''}
                                 </div>
                                 <!-- Gap -->
                                 <div style="display: flex; flex-direction: column; align-items: center;">
@@ -1255,7 +1257,15 @@ export class WhereaboutsCardEditor extends LitElement {
       </p>
       <div>
         <ul style="list-style: none; padding: 0; margin: 0;">
-          ${this.trackedEntities.map(entityId => {
+          ${[...this.trackedEntities].sort((a, b) => {
+            // Sort: person first, then sensors/inputs, then zones last
+            const domainA = a.split('.')[0];
+            const domainB = b.split('.')[0];
+            const orderA = domainA === 'person' ? 0 : domainA === 'zone' ? 2 : 1;
+            const orderB = domainB === 'person' ? 0 : domainB === 'zone' ? 2 : 1;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.localeCompare(b); // Alphabetical within same category
+          }).map(entityId => {
             const entity = this.hass?.states[entityId];
             const state = entity?.state || 'unavailable';
             const domain = entityId.split('.')[0];
