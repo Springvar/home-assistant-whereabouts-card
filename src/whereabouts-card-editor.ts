@@ -11,7 +11,7 @@ export class WhereaboutsCardEditor extends LitElement {
     if (!this.hass) return [];
     return Object.keys(this.hass.states)
       .filter(eid => eid.startsWith('person.'))
-      .filter(eid => !this._config.persons.some(p => p.entity_id === eid));
+      .filter(eid => !this._config.persons?.some(p => p.entity_id === eid));
   }
 
   get usedIcons(): string[] {
@@ -194,7 +194,7 @@ export class WhereaboutsCardEditor extends LitElement {
       const isValidEntity = !!this.hass.states[entityId];
 
       // Check if it matches a person's custom name
-      const matchesName = this._config.persons.some(p =>
+      const matchesName = this._config.persons?.some(p =>
         p.name?.toLowerCase() === val.toLowerCase() ||
         p.entity_id === val ||
         p.entity_id === entityId
@@ -355,7 +355,7 @@ export class WhereaboutsCardEditor extends LitElement {
       </div>
 
       <!-- PERSONS SECTION -->
-      <details ?open=${this._config.persons.length === 0}>
+      <details ?open=${!this._config.persons || this._config.persons.length === 0}>
         <summary><h3 style="display: inline;">Persons</h3></summary>
         <div style="margin-left: 1em;">
       <div>
@@ -368,7 +368,7 @@ export class WhereaboutsCardEditor extends LitElement {
         </select>
       </div>
       <div>
-        ${this._config.persons.map((person, idx) =>
+        ${(this._config.persons || []).map((person, idx) =>
           html`
             <details style="margin-bottom:1em; border: 1px solid #ccc; padding: 0.5em; border-radius: 4px;">
               <summary style="cursor: pointer; font-weight: bold;">
@@ -1015,7 +1015,7 @@ export class WhereaboutsCardEditor extends LitElement {
         <option value="is_afternoon">
         <option value="is_evening">
         <option value="day">
-        ${this._config.persons.flatMap(person =>
+        ${(this._config.persons || []).flatMap(person =>
           person.namedSensors ? Object.keys(person.namedSensors).map(sensorName => html`
             <option value="${sensorName}">
           `) : []
@@ -1064,9 +1064,9 @@ export class WhereaboutsCardEditor extends LitElement {
     const entity_id = select.value;
     if (
       entity_id &&
-      !this._config.persons.some(p => p.entity_id === entity_id)
+      !(this._config.persons || []).some(p => p.entity_id === entity_id)
     ) {
-      this._config = { ...this._config, persons: [...this._config.persons, { entity_id }] };
+      this._config = { ...this._config, persons: [...(this._config.persons || []), { entity_id }] };
       select.value = '';
       this.requestUpdate();
       this._emitConfigChanged();
@@ -1074,7 +1074,7 @@ export class WhereaboutsCardEditor extends LitElement {
   }
 
   _removePerson(idx: number) {
-    const newPersons = this._config.persons.filter((_, i) => i !== idx);
+    const newPersons = (this._config.persons || []).filter((_, i) => i !== idx);
     this._config = { ...this._config, persons: newPersons };
     this.requestUpdate();
     this._emitConfigChanged();
