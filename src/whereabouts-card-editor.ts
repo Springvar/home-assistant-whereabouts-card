@@ -335,25 +335,6 @@ export class WhereaboutsCardEditor extends LitElement {
       <div class="editor-container">
         <div class="editor-panel">
 
-      <!-- CARD SETTINGS -->
-      <h3>Card Settings</h3>
-      <div>
-        <label>Default activity:</label>
-        <input
-          type="text"
-          .value=${this._config.default_activity ?? this._config.default_verb ?? 'is'}
-          @input=${this._defaultActivityChanged}
-        />
-      </div>
-      <div>
-        <label>Default preposition:</label>
-        <input
-          type="text"
-          .value=${this._config.default_preposition ?? 'in'}
-          @input=${this._defaultPrepositionChanged}
-        />
-      </div>
-
       <!-- PERSONS SECTION -->
       <details ?open=${!this._config.persons || this._config.persons.length === 0}>
         <summary><h3 style="display: inline;">Persons</h3></summary>
@@ -505,6 +486,18 @@ export class WhereaboutsCardEditor extends LitElement {
             Define general activities that apply to persons based on their sensor values.
           </p>
           <div>
+            <label>Default activity:</label>
+            <input
+              type="text"
+              .value=${this._config.default_activity ?? this._config.default_verb ?? 'is'}
+              @input=${this._defaultActivityChanged}
+              placeholder="is"
+            />
+            <p style="font-size: 0.85em; color: #888; margin: 0.3em 0 0.8em 0;">
+              Fallback activity when no specific activity matches
+            </p>
+          </div>
+          <div>
             ${(this._config.activities ?? []).map((activity, idx) => html`
               <details style="margin-bottom:1em; border: 1px solid #ccc; padding: 0.5em; border-radius: 4px;">
                 <summary style="cursor: pointer; font-weight: bold;">
@@ -640,6 +633,18 @@ export class WhereaboutsCardEditor extends LitElement {
           ${this.hasAnyInvalidZones() ? html`<span style="color: #ff9800; font-size: 1.2em; margin-left: 0.5em;" title="Some zones are missing">⚠️</span>` : ''}
         </summary>
         <div style="margin-left: 1em;">
+          <div>
+            <label>Default preposition:</label>
+            <input
+              type="text"
+              .value=${this._config.default_preposition ?? 'in'}
+              @input=${this._defaultPrepositionChanged}
+              placeholder="in"
+            />
+            <p style="font-size: 0.85em; color: #888; margin: 0.3em 0 0.8em 0;">
+              Fallback preposition for zones without a group override
+            </p>
+          </div>
           <div>
         <label>Zone Groups:</label>
         <div>
