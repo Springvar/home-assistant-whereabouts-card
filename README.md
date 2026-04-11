@@ -16,6 +16,7 @@ A highly customizable Lovelace card that transforms your Home Assistant person t
         - [Zone Groups](#zone-groups-configuration)
         - [Template](#template-configuration)
 4. [Usage](#usage)
+    - [Visual Editor](#visual-editor)
     - [Features](#features)
     - [Examples](#examples)
 5. [Support](#support)
@@ -421,6 +422,40 @@ template: "{icon} {name} {activity} {-preposition} {-location}"
 ```
 
 ## Usage
+
+### Visual Editor
+
+The Whereabouts Card includes a comprehensive visual editor accessible through the Lovelace UI:
+
+**Persons Configuration:**
+
+Configure persons, custom sensors, and conditional visibility:
+
+<img src="https://raw.githubusercontent.com/Springvar/home-assistant-whereabouts-card/main/resources/screenshot_editor_persons.png" width="60%">
+
+**Activities Configuration:**
+
+Define context-aware activities with conditions and icons:
+
+<img src="https://raw.githubusercontent.com/Springvar/home-assistant-whereabouts-card/main/resources/screenshot_editor_activities.png" width="60%">
+
+**Zone Groups Configuration:**
+
+Group zones together and define zone-specific activities:
+
+<img src="https://raw.githubusercontent.com/Springvar/home-assistant-whereabouts-card/main/resources/screenshot_editor_zone_groups.png" width="60%">
+
+**Zone-Specific Activities:**
+
+Activities can be specific to zone groups, with intelligent filtering when adding zones to multiple groups:
+
+<img src="https://raw.githubusercontent.com/Springvar/home-assistant-whereabouts-card/main/resources/screenshot_editor_zone_groups-the_store.png" width="60%">
+
+**Display & Style Customization:**
+
+Fine-tune the card's visual appearance with the interactive layout editor:
+
+<img src="https://raw.githubusercontent.com/Springvar/home-assistant-whereabouts-card/main/resources/screenshot_editor_layout.png" width="60%">
 
 ### Features
 

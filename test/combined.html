@@ -138,12 +138,12 @@
                         }
                     },
                     'person.jane_doe': {
-                        state: 'home',
+                        state: 'grocery_store',
                         attributes: {
                             friendly_name: 'Jane Doe',
                             entity_picture: 'https://i.pravatar.cc/150?img=45',
-                            latitude: 63.4041,
-                            longitude: 10.4301
+                            latitude: 63.4100,
+                            longitude: 10.4200
                         }
                     },
                     'person.jimmy_doe': {
@@ -217,6 +217,33 @@
                             icon: 'mdi:dog-side'
                         }
                     },
+                    'zone.grocery_store': {
+                        state: 'zoning',
+                        attributes: {
+                            friendly_name: 'Grocery Store',
+                            latitude: 63.4100,
+                            longitude: 10.4200,
+                            radius: 50
+                        }
+                    },
+                    'zone.hardware_store': {
+                        state: 'zoning',
+                        attributes: {
+                            friendly_name: 'Hardware Store',
+                            latitude: 63.4120,
+                            longitude: 10.4180,
+                            radius: 50
+                        }
+                    },
+                    'zone.electronics_store': {
+                        state: 'zoning',
+                        attributes: {
+                            friendly_name: 'Electronics Store',
+                            latitude: 63.4080,
+                            longitude: 10.4220,
+                            radius: 50
+                        }
+                    },
                     'binary_sensor.joey_in_doghouse': {
                         state: 'on',
                         attributes: {
@@ -230,7 +257,7 @@
                         }
                     },
                     'sensor.jane_detected_activity': {
-                        state: 'still',
+                        state: 'driving',
                         attributes: {
                             friendly_name: 'Jane Detected Activity'
                         }
@@ -305,6 +332,28 @@
                                     where: 'zone.office',
                                     detected_activity: 'still'
                                 }
+                            }
+                        ]
+                    },
+                    {
+                        name: 'the store',
+                        zones: ['zone.grocery_store', 'zone.hardware_store', 'zone.electronics_store'],
+                        preposition: 'at',
+                        icon: 'mdi:shopping',
+                        activities: [
+                            {
+                                activity: 'is parking',
+                                icon: 'mdi:car',
+                                show_location: true,
+                                conditions: {
+                                    detected_activity: 'driving'
+                                }
+                            },
+                            {
+                                activity: 'is shopping',
+                                icon: 'mdi:cart',
+                                show_location: true,
+                                conditions: {}
                             }
                         ]
                     },
