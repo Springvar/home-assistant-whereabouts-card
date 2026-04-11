@@ -899,6 +899,8 @@ export class WhereaboutsCardEditor extends LitElement {
               <summary style="cursor: pointer; font-weight: bold;">
                 ${group.name || zoneLabel || `Zone Group ${gidx + 1}`}
                 ${hasInvalidZones ? html`<span style="color: #ff9800; font-size: 1.2em; margin-left: 0.5em;" title="Contains invalid zones: ${invalidZones.join(', ')}">⚠️</span>` : ''}
+                ${gidx > 0 ? html`<button @click=${(e: Event) => { e.preventDefault(); e.stopPropagation(); this._moveZoneGroupUp(gidx); }} title="Move Up">↑</button>` : ''}
+                ${gidx < (this._config.zone_groups?.length ?? 0) - 1 ? html`<button @click=${(e: Event) => { e.preventDefault(); e.stopPropagation(); this._moveZoneGroupDown(gidx); }} title="Move Down">↓</button>` : ''}
                 <button @click=${(e: Event) => { e.preventDefault(); e.stopPropagation(); this._removeZoneGroup(gidx); }} style="margin-left: 1em;">Remove Group</button>
               </summary>
               <div style="margin-top: 0.5em;">
@@ -1008,6 +1010,67 @@ export class WhereaboutsCardEditor extends LitElement {
                     })
   }
                 </ul>
+              </div>
+
+              <!-- Zone Group Conditions -->
+              <div>
+                <strong>Conditions (Optional)</strong>
+                <p style="font-size: 0.9em; color: #666; margin-top: 0.25em; margin-bottom: 0.5em;">
+                  Only apply this zone group when all conditions match. If no conditions are set, the group always applies.
+                </p>
+                <div>
+                  ${group.conditions && Object.keys(group.conditions).length > 0
+                    ? Object.entries(group.conditions).map(([key, value]) => {
+                      const validation = this.validateConditionValue(key, value);
+                      return html`
+                      <div style="margin-bottom: 0.5em;">
+                        <div style="display: flex; gap: 0.5em; align-items: center;">
+                          <input
+                            type="text"
+                            value="${key}"
+                            placeholder="condition key"
+                            list="zone-group-condition-suggestions-${gidx}"
+                            style="width: 120px;"
+                            @blur=${(e: Event) => this._updateZoneGroupConditionKey(gidx, key, (e.target as HTMLInputElement).value)}
+                          />
+                          <input
+                            type="text"
+                            value="${Array.isArray(value) ? value.join(', ') : value}"
+                            placeholder="value (comma-separated for multiple)"
+                            style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+                            @blur=${(e: Event) => this._updateZoneGroupConditionValue(gidx, key, (e.target as HTMLInputElement).value)}
+                          />
+                          <button class="icon-button" @click=${() => this._removeZoneGroupCondition(gidx, key)} title="Remove">🗑️</button>
+                        </div>
+                        ${!validation.valid ? html`
+                          <div style="margin-left: 130px; margin-top: 0.25em; color: #ff9800; font-size: 0.85em;" title="${validation.error}">
+                            ⚠️ ${validation.error}
+                          </div>
+                        ` : ''}
+                      </div>
+                    `;
+                    })
+                    : ''}
+                </div>
+                <datalist id="zone-group-condition-suggestions-${gidx}">
+                  <option value="random">
+                  <option value="who">
+                  <option value="user">
+                  <option value="when">
+                  <option value="is_workday">
+                  <option value="is_work_hours">
+                  <option value="is_night">
+                  <option value="is_morning">
+                  <option value="is_afternoon">
+                  <option value="is_evening">
+                  <option value="day">
+                  ${(this._config.persons || []).flatMap(person =>
+                    person.namedSensors ? Object.keys(person.namedSensors).map(sensorName => html`
+                      <option value="${sensorName}">
+                    `) : []
+                  )}
+                </datalist>
+                <button @click=${() => this._addZoneGroupCondition(gidx)} style="margin-top: 0.5em;">+ Add Condition</button>
               </div>
 
               <!-- Zone Group Activities -->
@@ -1744,6 +1807,92 @@ export class WhereaboutsCardEditor extends LitElement {
   _removeZoneGroup(idx: number) {
     const updated: ZoneGroup[] = (this._config.zone_groups ?? []).filter((_, i) => i !== idx);
     this._config = { ...this._config, zone_groups: updated };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _moveZoneGroupUp(idx: number) {
+    if (idx === 0) return;
+    const groups = [...(this._config.zone_groups ?? [])];
+    [groups[idx - 1], groups[idx]] = [groups[idx], groups[idx - 1]];
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _moveZoneGroupDown(idx: number) {
+    const groups = [...(this._config.zone_groups ?? [])];
+    if (idx >= groups.length - 1) return;
+    [groups[idx], groups[idx + 1]] = [groups[idx + 1], groups[idx]];
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _addZoneGroupCondition(gidx: number) {
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const conditions = { ...(groups[gidx].conditions || {}) };
+
+    let counter = 1;
+    while (conditions[`condition${counter}`]) {
+      counter++;
+    }
+
+    conditions[`condition${counter}`] = '';
+    groups[gidx] = { ...groups[gidx], conditions };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _updateZoneGroupConditionKey(gidx: number, oldKey: string, newKey: string) {
+    if (!newKey.trim() || newKey === oldKey) return;
+
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const conditions = { ...(groups[gidx].conditions || {}) };
+
+    if (conditions[newKey.trim()] && newKey.trim() !== oldKey) {
+      alert('A condition with this key already exists');
+      return;
+    }
+
+    const value = conditions[oldKey];
+    delete conditions[oldKey];
+    conditions[newKey.trim()] = value;
+
+    groups[gidx] = { ...groups[gidx], conditions };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _updateZoneGroupConditionValue(gidx: number, key: string, valueStr: string) {
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const conditions = { ...(groups[gidx].conditions || {}) };
+
+    const value = valueStr.includes(',')
+      ? valueStr.split(',').map(v => v.trim()).filter(v => v)
+      : valueStr.trim();
+
+    conditions[key] = value;
+    groups[gidx] = { ...groups[gidx], conditions };
+    this._config = { ...this._config, zone_groups: groups };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _removeZoneGroupCondition(gidx: number, key: string) {
+    const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
+    const conditions = { ...(groups[gidx].conditions || {}) };
+    delete conditions[key];
+
+    if (Object.keys(conditions).length === 0) {
+      groups[gidx] = { ...groups[gidx], conditions: undefined };
+    } else {
+      groups[gidx] = { ...groups[gidx], conditions };
+    }
+
+    this._config = { ...this._config, zone_groups: groups };
     this.requestUpdate();
     this._emitConfigChanged();
   }

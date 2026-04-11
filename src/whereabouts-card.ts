@@ -18,6 +18,7 @@ export interface ZoneGroup {
     override_location?: boolean;
     icon?: string;
     activities?: Activity[];
+    conditions?: { [key: string]: string | string[] };
 }
 
 export interface WhereaboutsCardConfig {
