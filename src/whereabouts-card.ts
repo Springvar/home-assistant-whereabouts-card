@@ -40,8 +40,13 @@ export interface WhereaboutsCardConfig {
         border_style?: string;
         border_color?: string;
         avatar_size?: string;
+        font_size?: string;
+        icon_size?: string;
+        icon_color?: string;
+        // Deprecated - use font_size instead
         location_font_size?: string;
         activity_font_size?: string;
+        // Deprecated - use icon_size instead
         location_icon_size?: string;
         location_icon_color?: string;
         activity_icon_size?: string;
@@ -359,16 +364,18 @@ class WhereaboutsCard extends LitElement {
                             ? `width: ${this.config.style.avatar_size}; height: ${this.config.style.avatar_size};`
                             : '';
 
-                        const locationStyle = this.config.style?.location_font_size
-                            ? `font-size: ${this.config.style.location_font_size};`
+                        const fontSize = this.config.style?.font_size || this.config.style?.location_font_size;
+                        const locationStyle = fontSize
+                            ? `font-size: ${fontSize};`
                             : '';
 
-                        const activityStyle = this.config.style?.activity_font_size
-                            ? `font-size: ${this.config.style.activity_font_size};`
+                        const activityFontSize = this.config.style?.font_size || this.config.style?.activity_font_size;
+                        const activityStyle = activityFontSize
+                            ? `font-size: ${activityFontSize};`
                             : '';
 
-                        const activityIconStyle = this.config.style?.activity_icon_size
-                            ? `--mdc-icon-size: ${this.config.style.activity_icon_size};`
+                        const activityIconStyle = (this.config.style?.icon_size || this.config.style?.activity_icon_size)
+                            ? `--mdc-icon-size: ${this.config.style.icon_size || this.config.style.activity_icon_size};`
                             : '';
 
                         // Determine if avatar should be shown: per-person override takes precedence
@@ -472,11 +479,11 @@ class WhereaboutsCard extends LitElement {
                 }
 
                 // Add the icon element with custom styling
-                const locationIconStyle = [
-                    this.config.style?.location_icon_size && `--mdc-icon-size: ${this.config.style.location_icon_size}`,
-                    this.config.style?.location_icon_color && `color: ${this.config.style.location_icon_color}`,
+                const iconStyle = [
+                    (this.config.style?.icon_size || this.config.style?.location_icon_size) && `--mdc-icon-size: ${this.config.style.icon_size || this.config.style.location_icon_size}`,
+                    (this.config.style?.icon_color || this.config.style?.location_icon_color) && `color: ${this.config.style.icon_color || this.config.style.location_icon_color}`,
                 ].filter(Boolean).join('; ');
-                rendered.push(html`<ha-icon icon="${variables.icon}" style="${locationIconStyle}"></ha-icon>`);
+                rendered.push(html`<ha-icon icon="${variables.icon}" style="${iconStyle}"></ha-icon>`);
                 current = current.substring(iconIndex + 6); // length of '{icon}'
             }
 

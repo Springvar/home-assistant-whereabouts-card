@@ -331,6 +331,125 @@ export class WhereaboutsCardEditor extends LitElement {
     });
   }
 
+  private _parseSpacing(value: string | undefined): [string, string, string, string] {
+    if (!value) return ['', '', '', ''];
+    const parts = value.trim().split(/\s+/);
+
+    if (parts.length === 1) {
+      // Single value: all sides
+      return [parts[0], parts[0], parts[0], parts[0]];
+    } else if (parts.length === 2) {
+      // Two values: top/bottom left/right
+      return [parts[0], parts[1], parts[0], parts[1]];
+    } else if (parts.length === 3) {
+      // Three values: top left/right bottom
+      return [parts[0], parts[1], parts[2], parts[1]];
+    } else {
+      // Four values: top right bottom left
+      return [parts[0], parts[1], parts[2], parts[3]];
+    }
+  }
+
+  private _buildSpacing(top: string, right: string, bottom: string, left: string): string {
+    // Normalize empty strings to '0'
+    const t = top.trim() || '0';
+    const r = right.trim() || '0';
+    const b = bottom.trim() || '0';
+    const l = left.trim() || '0';
+
+    // If all are empty or zero, return empty
+    if (!top && !right && !bottom && !left) return '';
+
+    // Optimize output
+    if (t === r && r === b && b === l) {
+      // All same
+      return t;
+    } else if (t === b && r === l) {
+      // top/bottom same, left/right same
+      return `${t} ${r}`;
+    } else if (r === l) {
+      // left/right same
+      return `${t} ${r} ${b}`;
+    } else {
+      // All different
+      return `${t} ${r} ${b} ${l}`;
+    }
+  }
+
+  private _renderSpacingInputs(key: string, value: string | undefined, placeholder: string, content: any) {
+    const [top, right, bottom, left] = this._parseSpacing(value);
+
+    const updateSpacing = (side: 'top' | 'right' | 'bottom' | 'left') => (e: Event) => {
+      const newValue = (e.target as HTMLInputElement).value;
+      const [t, r, b, l] = this._parseSpacing(value);
+
+      let updatedTop = t, updatedRight = r, updatedBottom = b, updatedLeft = l;
+      if (side === 'top') updatedTop = newValue;
+      else if (side === 'right') updatedRight = newValue;
+      else if (side === 'bottom') updatedBottom = newValue;
+      else if (side === 'left') updatedLeft = newValue;
+
+      const combined = this._buildSpacing(updatedTop, updatedRight, updatedBottom, updatedLeft);
+
+      const style = { ...this._config.style };
+      if (combined === '') {
+        delete style[key as keyof typeof style];
+      } else {
+        style[key as keyof typeof style] = combined;
+      }
+
+      if (Object.keys(style).length === 0) {
+        const { style: _, ...rest } = this._config;
+        this._config = rest;
+      } else {
+        this._config = { ...this._config, style };
+      }
+
+      this.requestUpdate();
+      this._emitConfigChanged();
+    };
+
+    const placeholderParts = placeholder.split(/\s+/);
+
+    return html`
+      <div class="spacing-grid">
+        <div></div>
+        <input type="text"
+          class="spacing-input"
+          .value=${top}
+          @input=${updateSpacing('top')}
+          placeholder=${placeholderParts[0]}
+          title="Top" />
+        <div></div>
+
+        <input type="text"
+          class="spacing-input"
+          .value=${left}
+          @input=${updateSpacing('left')}
+          placeholder=${placeholderParts[1] || placeholderParts[0]}
+          title="Left" />
+        <div class="spacing-content">
+          ${content}
+        </div>
+        <input type="text"
+          class="spacing-input"
+          .value=${right}
+          @input=${updateSpacing('right')}
+          placeholder=${placeholderParts[1] || placeholderParts[0]}
+          title="Right" />
+
+        <div></div>
+        <input type="text"
+          class="spacing-input"
+          .value=${bottom}
+          @input=${updateSpacing('bottom')}
+          placeholder=${placeholderParts[0]}
+          title="Bottom" />
+        <div></div>
+      </div>
+    `;
+  }
+
   private _renderIconPicker(currentValue: string, placeholder: string, onChange: (value: string) => void) {
     const defaultIcons = [
       'mdi:account', 'mdi:home', 'mdi:office-building', 'mdi:briefcase',
@@ -982,16 +1101,6 @@ export class WhereaboutsCardEditor extends LitElement {
               style="margin-left: 1em; width: 200px;"
             />
           </div>
-          <div style="margin-bottom: 1em;">
-            <label>
-              <input
-                type="checkbox"
-                .checked=${this._config.show_avatars === true}
-                @change=${this._toggleShowAvatars}
-              />
-              Show avatars
-            </label>
-          </div>
 
           <!-- Template -->
           <div style="margin-bottom: 1em;">
@@ -1017,132 +1126,124 @@ export class WhereaboutsCardEditor extends LitElement {
             </p>
           </div>
 
-          <!-- Style Customization -->
-          <details style="margin-top: 1em;">
-            <summary style="cursor: pointer;"><strong>Advanced Styling</strong></summary>
-            <div style="margin-left: 1em; margin-top: 1em;">
-              <p style="font-size: 0.9em; color: #666; margin-bottom: 1em;">
-                Customize spacing, borders, and sizes. Leave empty to use defaults.
-              </p>
+          <!-- Person Container Layout -->
+          <div style="margin-bottom: 1.5em; margin-top: 1.5em;">
+            <h4 style="font-size: 0.95em; font-weight: 500; margin-bottom: 0.8em; margin-top: 0;">Person Container Layout</h4>
+                <div class="box-model">
+                  <!-- Margin -->
+                  <div class="box-layer box-margin">
+                    <div class="box-label">margin</div>
+                    ${this._renderSpacingInputs('container_margin', this._config.style?.container_margin, '12px 0', html`
+                      <!-- Border -->
+                      <div class="box-layer box-border">
+                        <div class="box-label">border</div>
+                        <div style="display: flex; gap: 2px; margin-bottom: 2px;">
+                          <input type="text"
+                            class="box-input"
+                            style="flex: 0 0 28%;"
+                            .value=${this._config.style?.border_width || ''}
+                            @input=${this._styleChanged('border_width')}
+                            placeholder="3px" />
+                          <select
+                            class="box-select"
+                            style="flex: 0 1 auto; min-width: 0; max-width: 60%;"
+                            .value=${this._config.style?.border_style || ''}
+                            @change=${this._styleChanged('border_style')}>
+                            <option value="">solid</option>
+                            <option value="solid">solid</option>
+                            <option value="dashed">dashed</option>
+                            <option value="dotted">dotted</option>
+                            <option value="double">double</option>
+                            <option value="none">none</option>
+                          </select>
+                        </div>
+                        <input type="text"
+                          class="box-input"
+                          .value=${this._config.style?.border_color || ''}
+                          @input=${this._styleChanged('border_color')}
+                          placeholder="var(--primary-color)" />
 
-              <div style="margin-bottom: 0.8em;">
-                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Container Margin:</label>
-                <input type="text"
-                  style="width: 100%; box-sizing: border-box;"
-                  .value=${this._config.style?.container_margin || ''}
-                  @input=${this._styleChanged('container_margin')}
-                  placeholder="12px 0 (default)" />
-                <p style="font-size: 0.85em; color: #888; margin: 0.2em 0 0 0;">Example: 12px 0, 1em 0.5em</p>
+                        <!-- Padding -->
+                        <div class="box-layer box-padding">
+                          <div class="box-label">padding</div>
+                          ${this._renderSpacingInputs('container_padding', this._config.style?.container_padding, '8px', html`
+                            <!-- Content -->
+                            <div class="box-layer box-content">
+                              <div class="box-label">content</div>
+                              <div style="display: flex; align-items: flex-start; justify-content: center; gap: 3px; padding: 5px 2px;">
+                                <!-- Avatar column -->
+                                <div style="display: flex; flex-direction: column; align-items: center; gap: 1px;">
+                                  <div
+                                    class="avatar-toggle"
+                                    @click=${this._toggleShowAvatarsClick}
+                                    style="cursor: pointer; width: 26px; height: 26px; border-radius: 50%; overflow: hidden; border: 2px solid var(--divider-color); transition: all 0.2s; flex-shrink: 0; ${this._config.show_avatars ? '' : 'opacity: 0.3; filter: grayscale(100%);'}"
+                                    title="${this._config.show_avatars ? 'Click to hide avatars' : 'Click to show avatars'}"
+                                  >
+                                    <svg width="26" height="26" viewBox="0 0 48 48">
+                                      <circle cx="24" cy="24" r="24" fill="#E3F2FD"/>
+                                      <circle cx="24" cy="18" r="8" fill="#2196F3"/>
+                                      <path d="M 8 44 Q 8 32 24 32 Q 40 32 40 44 Z" fill="#2196F3"/>
+                                    </svg>
+                                  </div>
+                                  <div style="display: flex; flex-direction: column; align-items: center;">
+                                    <label style="font-size: 0.55em; color: #666; margin-bottom: 1px; white-space: nowrap;">Size</label>
+                                    <input type="text"
+                                      class="spacing-input"
+                                      style="position: static; transform: none; width: 20px;"
+                                      .value=${this._config.style?.avatar_size || ''}
+                                      @input=${this._styleChanged('avatar_size')}
+                                      placeholder="38px" />
+                                  </div>
+                                </div>
+                                <!-- Gap -->
+                                <div style="display: flex; flex-direction: column; align-items: center;">
+                                  <label style="font-size: 0.55em; color: #666; margin-bottom: 1px; white-space: nowrap;">Gap</label>
+                                  <input type="text"
+                                    class="spacing-input"
+                                    style="position: static; transform: none; width: 20px; margin-top: 8px;"
+                                    .value=${this._config.style?.container_gap || ''}
+                                    @input=${this._styleChanged('container_gap')}
+                                    placeholder="12px" />
+                                </div>
+                                <!-- Font Size -->
+                                <div style="display: flex; flex-direction: column; align-items: center;">
+                                  <label style="font-size: 0.55em; color: #666; margin-bottom: 1px; white-space: nowrap;">Font</label>
+                                  <input type="text"
+                                    class="spacing-input"
+                                    style="position: static; transform: none; width: 20px; margin-top: 8px;"
+                                    .value=${this._config.style?.font_size || this._config.style?.location_font_size || ''}
+                                    @input=${this._styleChanged('font_size')}
+                                    placeholder="1em" />
+                                </div>
+                                <!-- Icon Size -->
+                                <div style="display: flex; flex-direction: column; align-items: center;">
+                                  <label style="font-size: 0.55em; color: #666; margin-bottom: 1px; white-space: nowrap;">Icon</label>
+                                  <input type="text"
+                                    class="spacing-input"
+                                    style="position: static; transform: none; width: 20px; margin-top: 8px;"
+                                    .value=${this._config.style?.icon_size || this._config.style?.location_icon_size || ''}
+                                    @input=${this._styleChanged('icon_size')}
+                                    placeholder="20px" />
+                                </div>
+                                <!-- Icon Color -->
+                                <div style="display: flex; flex-direction: column; align-items: center;">
+                                  <label style="font-size: 0.55em; color: #666; margin-bottom: 1px; white-space: nowrap;">Color</label>
+                                  <input type="text"
+                                    class="spacing-input"
+                                    style="position: static; transform: none; width: 20px; margin-top: 9px;"
+                                    .value=${this._config.style?.icon_color || this._config.style?.location_icon_color || ''}
+                                    @input=${this._styleChanged('icon_color')}
+                                    placeholder="#333" />
+                                </div>
+                              </div>
+                            </div>
+                          `)}
+                        </div>
+                      </div>
+                    `)}
+                  </div>
+                </div>
               </div>
-
-              <div style="margin-bottom: 0.8em;">
-                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Container Padding:</label>
-                <input type="text"
-                  style="width: 100%; box-sizing: border-box;"
-                  .value=${this._config.style?.container_padding || ''}
-                  @input=${this._styleChanged('container_padding')}
-                  placeholder="8px (default)" />
-              </div>
-
-              <div style="margin-bottom: 0.8em;">
-                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Container Gap:</label>
-                <input type="text"
-                  style="width: 100%; box-sizing: border-box;"
-                  .value=${this._config.style?.container_gap || ''}
-                  @input=${this._styleChanged('container_gap')}
-                  placeholder="12px (default)" />
-                <p style="font-size: 0.85em; color: #888; margin: 0.2em 0 0 0;">Space between avatar and content</p>
-              </div>
-
-              <div style="margin-bottom: 0.8em;">
-                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Border Width:</label>
-                <input type="text"
-                  style="width: 100%; box-sizing: border-box;"
-                  .value=${this._config.style?.border_width || ''}
-                  @input=${this._styleChanged('border_width')}
-                  placeholder="3px (default)" />
-              </div>
-
-              <div style="margin-bottom: 0.8em;">
-                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Border Style:</label>
-                <select
-                  style="width: 100%; box-sizing: border-box;"
-                  .value=${this._config.style?.border_style || ''}
-                  @change=${this._styleChanged('border_style')}>
-                  <option value="">Default (solid)</option>
-                  <option value="solid">Solid</option>
-                  <option value="dashed">Dashed</option>
-                  <option value="dotted">Dotted</option>
-                  <option value="double">Double</option>
-                  <option value="none">None</option>
-                </select>
-              </div>
-
-              <div style="margin-bottom: 0.8em;">
-                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Border Color:</label>
-                <input type="text"
-                  style="width: 100%; box-sizing: border-box;"
-                  .value=${this._config.style?.border_color || ''}
-                  @input=${this._styleChanged('border_color')}
-                  placeholder="var(--primary-color) (default)" />
-                <p style="font-size: 0.85em; color: #888; margin: 0.2em 0 0 0;">Example: #1976d2, rgb(25, 118, 210), var(--primary-color)</p>
-              </div>
-
-              <div style="margin-bottom: 0.8em;">
-                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Avatar Size:</label>
-                <input type="text"
-                  style="width: 100%; box-sizing: border-box;"
-                  .value=${this._config.style?.avatar_size || ''}
-                  @input=${this._styleChanged('avatar_size')}
-                  placeholder="38px (default)" />
-              </div>
-
-              <div style="margin-bottom: 0.8em;">
-                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Location Font Size:</label>
-                <input type="text"
-                  style="width: 100%; box-sizing: border-box;"
-                  .value=${this._config.style?.location_font_size || ''}
-                  @input=${this._styleChanged('location_font_size')}
-                  placeholder="inherit (default)" />
-              </div>
-
-              <div style="margin-bottom: 0.8em;">
-                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Activity Font Size:</label>
-                <input type="text"
-                  style="width: 100%; box-sizing: border-box;"
-                  .value=${this._config.style?.activity_font_size || ''}
-                  @input=${this._styleChanged('activity_font_size')}
-                  placeholder="inherit (default)" />
-              </div>
-
-              <div style="margin-bottom: 0.8em;">
-                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Location Icon Size:</label>
-                <input type="text"
-                  style="width: 100%; box-sizing: border-box;"
-                  .value=${this._config.style?.location_icon_size || ''}
-                  @input=${this._styleChanged('location_icon_size')}
-                  placeholder="20px (default)" />
-              </div>
-
-              <div style="margin-bottom: 0.8em;">
-                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Location Icon Color:</label>
-                <input type="text"
-                  style="width: 100%; box-sizing: border-box;"
-                  .value=${this._config.style?.location_icon_color || ''}
-                  @input=${this._styleChanged('location_icon_color')}
-                  placeholder="var(--primary-color) (default)" />
-              </div>
-
-              <div style="margin-bottom: 0.8em;">
-                <label style="font-size: 0.9em; display: block; margin-bottom: 0.3em;">Activity Icon Size:</label>
-                <input type="text"
-                  style="width: 100%; box-sizing: border-box;"
-                  .value=${this._config.style?.activity_icon_size || ''}
-                  @input=${this._styleChanged('activity_icon_size')}
-                  placeholder="20px (default)" />
-              </div>
-            </div>
-          </details>
 
         </div>
       </details>
@@ -1239,6 +1340,12 @@ export class WhereaboutsCardEditor extends LitElement {
   _toggleShowAvatars(e: Event) {
     const checked = (e.target as HTMLInputElement).checked;
     this._config = { ...this._config, show_avatars: checked };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _toggleShowAvatarsClick() {
+    this._config = { ...this._config, show_avatars: !this._config.show_avatars };
     this.requestUpdate();
     this._emitConfigChanged();
   }
@@ -1989,6 +2096,21 @@ export class WhereaboutsCardEditor extends LitElement {
       } else {
         style[key as keyof typeof style] = value;
       }
+
+      // Migrate old properties to new unified properties
+      if (key === 'icon_size') {
+        delete style.location_icon_size;
+        delete style.activity_icon_size;
+      }
+      if (key === 'icon_color') {
+        delete style.location_icon_color;
+        delete style.activity_icon_color;
+      }
+      if (key === 'font_size') {
+        delete style.location_font_size;
+        delete style.activity_font_size;
+      }
+
       // Remove style object if empty
       if (Object.keys(style).length === 0) {
         const { style: _, ...rest } = this._config;
@@ -2177,6 +2299,136 @@ export class WhereaboutsCardEditor extends LitElement {
       font-size: 11px;
       font-weight: bold;
       line-height: 1;
+    }
+
+    /* Avatar Toggle */
+    .avatar-toggle:hover {
+      transform: scale(1.05);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    /* Box Model Visualization */
+    .box-model {
+      font-family: system-ui, -apple-system, sans-serif;
+      font-size: 0.85em;
+    }
+
+    .box-layer {
+      border: 1px solid #ccc;
+      border-radius: 3px;
+      position: relative;
+      box-sizing: border-box;
+      max-width: 100%;
+    }
+
+    .box-margin {
+      background: #fef3e0;
+      padding: 4px;
+      box-sizing: border-box;
+    }
+
+    .box-border {
+      background: #ffe4b5;
+      padding: 4px;
+      margin-top: 10px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .box-padding {
+      background: #d4edda;
+      padding: 4px;
+      margin-top: 12px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .box-content {
+      background: #cfe2ff;
+      min-height: 55px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      margin-top: 12px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .box-label {
+      position: absolute;
+      top: -10px;
+      left: 8px;
+      background: white;
+      padding: 0 4px;
+      font-size: 0.85em;
+      font-weight: 500;
+      color: #666;
+    }
+
+    .box-input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 2px 4px;
+      margin: 0;
+      border: 1px solid #ccc;
+      border-radius: 2px;
+      font-size: 0.75em;
+      font-family: monospace;
+      background: white;
+    }
+
+    .box-input:focus {
+      outline: none;
+      border-color: var(--primary-color, #03a9f4);
+    }
+
+    .box-select {
+      box-sizing: border-box;
+      padding: 2px 4px;
+      margin: 0;
+      border: 1px solid #ccc;
+      border-radius: 2px;
+      font-size: 0.75em;
+      background: white;
+      cursor: pointer;
+    }
+
+    .box-select:focus {
+      outline: none;
+      border-color: var(--primary-color, #03a9f4);
+    }
+
+    .spacing-grid {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      grid-template-rows: auto 1fr auto;
+      gap: 2px;
+      align-items: center;
+      justify-items: center;
+    }
+
+    .spacing-content {
+      grid-column: 2;
+      grid-row: 2;
+      width: 100%;
+      min-width: 0;
+    }
+
+    .spacing-input {
+      width: 20px;
+      padding: 2px 2px;
+      border: 1px solid #ccc;
+      border-radius: 2px;
+      font-size: 0.65em;
+      font-family: monospace;
+      background: white;
+      text-align: center;
+    }
+
+    .spacing-input:focus {
+      outline: none;
+      border-color: var(--primary-color, #03a9f4);
+      z-index: 10;
     }
   `;
 }
