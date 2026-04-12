@@ -539,13 +539,13 @@ export class WhereaboutsCardEditor extends LitElement {
             onChangeCallback(newValue);
           }}
         >
-          <option value="=" ?selected=${parsed.operator === '='}>=</option>
-          <option value="!=" ?selected=${parsed.operator === '!=' || parsed.operator === '<>'}≠</option>
-          <option value=">" ?selected=${parsed.operator === '>'}>&gt;</option>
-          <option value="<" ?selected=${parsed.operator === '<'}>&lt;</option>
-          <option value=">=" ?selected=${parsed.operator === '>='}≥</option>
-          <option value="<=" ?selected=${parsed.operator === '<='}≤</option>
-          <option value="oneOf" ?selected=${parsed.operator === 'oneOf'}>oneOf</option>
+          <option value="=">=</option>
+          <option value="!=">≠</option>
+          <option value=">">></option>
+          <option value="<"><</option>
+          <option value=">=">≥</option>
+          <option value="<=">≤</option>
+          <option value="oneOf">oneOf</option>
         </select>
         ${parsed.operator === 'oneOf'
           ? html`
