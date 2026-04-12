@@ -672,14 +672,21 @@ export class WhereaboutsCardEditor extends LitElement {
                       return html`
                       <div style="margin-bottom: 0.5em;">
                         <div style="display: flex; gap: 0.5em; align-items: center;">
-                          <input
-                            type="text"
-                            value="${key}"
-                            placeholder="condition key"
-                            list="condition-key-suggestions-${idx}"
+                          <select
+                            .value="${key}"
                             style="width: 120px;"
-                            @blur=${(e: Event) => this._updateHideIfConditionKey(idx, key, (e.target as HTMLInputElement).value)}
-                          />
+                            @change=${(e: Event) => this._updateHideIfConditionKey(idx, key, (e.target as HTMLSelectElement).value)}
+                          >
+                            <option value="" ?selected=${!key}>Select...</option>
+                            <option value="who" ?selected=${key === 'who'}>who</option>
+                            <option value="where" ?selected=${key === 'where'}>where</option>
+                            <option value="when" ?selected=${key === 'when'}>when</option>
+                            <option value="user" ?selected=${key === 'user'}>user</option>
+                            <option value="random" ?selected=${key === 'random'}>random</option>
+                            ${this.uniqueNamedSensors.map(sensorName => html`
+                              <option value="${sensorName}" ?selected=${key === sensorName}>${sensorName}</option>
+                            `)}
+                          </select>
                           <input
                             type="text"
                             value="${Array.isArray(value) ? value.join(', ') : value}"
@@ -699,16 +706,6 @@ export class WhereaboutsCardEditor extends LitElement {
                     })
                     : ''}
                 </div>
-                <datalist id="condition-key-suggestions-${idx}">
-                  <option value="who">
-                  <option value="where">
-                  <option value="when">
-                  <option value="user">
-                  <option value="random">
-                  ${this.uniqueNamedSensors.map(sensorName => html`
-                    <option value="${sensorName}">
-                  `)}
-                </datalist>
                 <button @click=${() => this._addHideIfCondition(idx)} style="margin-top: 0.5em;">+ Add Condition</button>
               </div>
               </div>
@@ -831,14 +828,21 @@ export class WhereaboutsCardEditor extends LitElement {
                       return html`
                       <div style="margin-bottom: 0.5em;">
                         <div style="display: flex; gap: 0.5em; align-items: center;">
-                          <input
-                            type="text"
-                            value="${key}"
-                            placeholder="condition key"
-                            list="activity-condition-suggestions"
+                          <select
+                            .value="${key}"
                             style="width: 120px;"
-                            @blur=${(e: Event) => this._updateActivityConditionKey(idx, key, (e.target as HTMLInputElement).value)}
-                          />
+                            @change=${(e: Event) => this._updateActivityConditionKey(idx, key, (e.target as HTMLSelectElement).value)}
+                          >
+                            <option value="" ?selected=${!key}>Select...</option>
+                            <option value="who" ?selected=${key === 'who'}>who</option>
+                            <option value="where" ?selected=${key === 'where'}>where</option>
+                            <option value="when" ?selected=${key === 'when'}>when</option>
+                            <option value="user" ?selected=${key === 'user'}>user</option>
+                            <option value="random" ?selected=${key === 'random'}>random</option>
+                            ${this.uniqueNamedSensors.map(sensorName => html`
+                              <option value="${sensorName}" ?selected=${key === sensorName}>${sensorName}</option>
+                            `)}
+                          </select>
                           <input
                             type="text"
                             value="${Array.isArray(value) ? value.join(', ') : value}"
@@ -1029,13 +1033,21 @@ export class WhereaboutsCardEditor extends LitElement {
                       return html`
                       <div style="margin-bottom: 0.5em;">
                         <div style="display: flex; gap: 0.5em; align-items: center;">
-                          <input
-                            type="text"
-                            value="${key}"
-                            placeholder="condition key"
-                            list="zone-group-condition-suggestions-${gidx}"
+                          <select
+                            .value="${key}"
                             style="width: 120px;"
-                            @blur=${(e: Event) => this._updateZoneGroupConditionKey(gidx, key, (e.target as HTMLInputElement).value)}
+                            @change=${(e: Event) => this._updateZoneGroupConditionKey(gidx, key, (e.target as HTMLSelectElement).value)}
+                          >
+                            <option value="" ?selected=${!key}>Select...</option>
+                            <option value="who" ?selected=${key === 'who'}>who</option>
+                            <option value="where" ?selected=${key === 'where'}>where</option>
+                            <option value="when" ?selected=${key === 'when'}>when</option>
+                            <option value="user" ?selected=${key === 'user'}>user</option>
+                            <option value="random" ?selected=${key === 'random'}>random</option>
+                            ${this.uniqueNamedSensors.map(sensorName => html`
+                              <option value="${sensorName}" ?selected=${key === sensorName}>${sensorName}</option>
+                            `)}
+                          </select>
                           />
                           <input
                             type="text"
@@ -1056,16 +1068,6 @@ export class WhereaboutsCardEditor extends LitElement {
                     })
                     : ''}
                 </div>
-                <datalist id="zone-group-condition-suggestions-${gidx}">
-                  <option value="who">
-                  <option value="where">
-                  <option value="when">
-                  <option value="user">
-                  <option value="random">
-                  ${this.uniqueNamedSensors.map(sensorName => html`
-                    <option value="${sensorName}">
-                  `)}
-                </datalist>
                 <button @click=${() => this._addZoneGroupCondition(gidx)} style="margin-top: 0.5em;">+ Add Condition</button>
               </div>
 
@@ -1174,13 +1176,21 @@ export class WhereaboutsCardEditor extends LitElement {
                               return html`
                               <div style="margin-bottom: 0.5em;">
                                 <div style="display: flex; gap: 0.5em; align-items: center;">
-                                  <input
-                                    type="text"
-                                    value="${key}"
-                                    placeholder="condition key"
-                                    list="activity-condition-suggestions"
+                                  <select
+                                    .value="${key}"
                                     style="width: 120px;"
-                                    @blur=${(e: Event) => this._updateZoneGroupActivityConditionKey(gidx, aidx, key, (e.target as HTMLInputElement).value)}
+                                    @change=${(e: Event) => this._updateZoneGroupActivityConditionKey(gidx, aidx, key, (e.target as HTMLSelectElement).value)}
+                                  >
+                                    <option value="" ?selected=${!key}>Select...</option>
+                                    <option value="who" ?selected=${key === 'who'}>who</option>
+                                    <option value="where" ?selected=${key === 'where'}>where</option>
+                                    <option value="when" ?selected=${key === 'when'}>when</option>
+                                    <option value="user" ?selected=${key === 'user'}>user</option>
+                                    <option value="random" ?selected=${key === 'random'}>random</option>
+                                    ${this.uniqueNamedSensors.map(sensorName => html`
+                                      <option value="${sensorName}" ?selected=${key === sensorName}>${sensorName}</option>
+                                    `)}
+                                  </select>
                                   />
                                   <input
                                     type="text"
@@ -1463,17 +1473,6 @@ export class WhereaboutsCardEditor extends LitElement {
         <option value="mdi:briefcase-clock">
         <option value="mdi:desktop-classic">
       </datalist>
-
-      <datalist id="activity-condition-suggestions">
-        <option value="who">
-        <option value="where">
-        <option value="when">
-        <option value="user">
-        <option value="random">
-        ${this.uniqueNamedSensors.map(sensorName => html`
-          <option value="${sensorName}">
-        `)}
-      </datalist>
   `;
 }
 
@@ -1728,13 +1727,8 @@ export class WhereaboutsCardEditor extends LitElement {
     const activities = [...(this._config.activities ?? [])];
     const conditions = { ...(activities[idx].conditions || {}) };
 
-    // Find a unique key like "condition1", "condition2", etc.
-    let counter = 1;
-    while (conditions[`condition${counter}`]) {
-      counter++;
-    }
-
-    conditions[`condition${counter}`] = '';
+    // Use empty string as key so user can select from dropdown
+    conditions[''] = '';
     activities[idx] = { ...activities[idx], conditions };
     this._config = { ...this._config, activities };
     this.requestUpdate();
@@ -1826,12 +1820,8 @@ export class WhereaboutsCardEditor extends LitElement {
     const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
     const conditions = { ...(groups[gidx].conditions || {}) };
 
-    let counter = 1;
-    while (conditions[`condition${counter}`]) {
-      counter++;
-    }
-
-    conditions[`condition${counter}`] = '';
+    // Use empty string as key so user can select from dropdown
+    conditions[''] = '';
     groups[gidx] = { ...groups[gidx], conditions };
     this._config = { ...this._config, zone_groups: groups };
     this.requestUpdate();
@@ -2119,12 +2109,8 @@ export class WhereaboutsCardEditor extends LitElement {
     const activities = [...(groups[gidx].activities ?? [])];
     const conditions = { ...(activities[aidx].conditions || {}) };
 
-    let counter = 1;
-    while (conditions[`condition${counter}`]) {
-      counter++;
-    }
-
-    conditions[`condition${counter}`] = '';
+    // Use empty string as key so user can select from dropdown
+    conditions[''] = '';
     activities[aidx] = { ...activities[aidx], conditions };
     groups[gidx] = { ...groups[gidx], activities };
     this._config = { ...this._config, zone_groups: groups };
@@ -2254,13 +2240,8 @@ export class WhereaboutsCardEditor extends LitElement {
     const persons = [...this._config.persons];
     const hideIf = { ...(persons[personIdx].hideIf || {}) };
 
-    // Find a unique key like "condition1", "condition2", etc.
-    let counter = 1;
-    while (hideIf[`condition${counter}`]) {
-      counter++;
-    }
-
-    hideIf[`condition${counter}`] = '';
+    // Use empty string as key so user can select from dropdown
+    hideIf[''] = '';
     persons[personIdx] = { ...persons[personIdx], hideIf };
     this._config = { ...this._config, persons };
     this.requestUpdate();
