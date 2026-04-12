@@ -420,23 +420,63 @@ export class WhereaboutsCardEditor extends LitElement {
   }
 
   /**
+   * Parse operator from condition value (e.g., "!value" -> {operator: "!", value: "value"})
+   */
+  parseConditionOperator(value: string, inputType: 'select' | 'number' | 'text'): { operator: string; value: string } {
+    const valueStr = value.trim();
+
+    if (inputType === 'number') {
+      // Check for numeric operators: >=, <=, !=, <>, >, <, =
+      const match = valueStr.match(/^(>=|<=|!=|<>|>|<|=)(.*)$/);
+      if (match) {
+        return { operator: match[1], value: match[2].trim() };
+      }
+      return { operator: '=', value: valueStr };
+    }
+
+    // For select and text: check for ! prefix
+    if (valueStr.startsWith('!')) {
+      return { operator: '!', value: valueStr.substring(1) };
+    }
+
+    return { operator: '', value: valueStr };
+  }
+
+  /**
    * Render the appropriate input for a condition value based on the key
    */
   renderConditionValueInput(key: string, value: string | string[], onChangeCallback: (newValue: string) => void, validation: { valid: boolean; error?: string }) {
     const inputType = this.getConditionValueInputType(key);
     const valueStr = Array.isArray(value) ? value.join(', ') : value;
+    const parsed = this.parseConditionOperator(valueStr, inputType);
 
     if (inputType === 'select') {
       const options = this.getConditionValueOptions(key);
       return html`
+        <label style="display: flex; align-items: center; gap: 4px; white-space: nowrap;">
+          <input
+            type="checkbox"
+            .checked=${parsed.operator === '!'}
+            @change=${(e: Event) => {
+              const checked = (e.target as HTMLInputElement).checked;
+              const newValue = checked ? `!${parsed.value}` : parsed.value;
+              onChangeCallback(newValue);
+            }}
+            title="Negate condition"
+          />
+          <span style="font-size: 0.85em;">not</span>
+        </label>
         <select
-          .value="${valueStr}"
+          .value="${parsed.value}"
           style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
-          @change=${(e: Event) => onChangeCallback((e.target as HTMLSelectElement).value)}
+          @change=${(e: Event) => {
+            const newValue = (e.target as HTMLSelectElement).value;
+            onChangeCallback(parsed.operator === '!' ? `!${newValue}` : newValue);
+          }}
         >
           <option value="">Select...</option>
           ${options.map(option => html`
-            <option value="${option}" ?selected=${valueStr === option}>
+            <option value="${option}" ?selected=${parsed.value === option}>
               ${key === 'who'
                 ? (this._config.persons?.find(p => p.entity_id === option)?.name || this.hass?.states[option]?.attributes?.friendly_name || option)
                 : option}
@@ -448,27 +488,63 @@ export class WhereaboutsCardEditor extends LitElement {
 
     if (inputType === 'number') {
       return html`
+        <select
+          .value="${parsed.operator}"
+          style="width: 60px; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+          @change=${(e: Event) => {
+            const operator = (e.target as HTMLSelectElement).value;
+            const newValue = operator === '=' ? parsed.value : `${operator}${parsed.value}`;
+            onChangeCallback(newValue);
+          }}
+        >
+          <option value="=" ?selected=${parsed.operator === '='}>=</option>
+          <option value="!=" ?selected=${parsed.operator === '!=' || parsed.operator === '<>'}≠</option>
+          <option value=">" ?selected=${parsed.operator === '>'}>&gt;</option>
+          <option value="<" ?selected=${parsed.operator === '<'}>&lt;</option>
+          <option value=">=" ?selected=${parsed.operator === '>='}≥</option>
+          <option value="<=" ?selected=${parsed.operator === '<='}≤</option>
+        </select>
         <input
           type="number"
-          .value="${valueStr}"
-          placeholder="${key === 'random' ? '0-100 (or 0-1)' : 'value'}"
+          .value="${parsed.value}"
+          placeholder="${key === 'random' ? '0-100' : 'value'}"
           min="${key === 'random' ? '0' : ''}"
           max="${key === 'random' ? '100' : ''}"
           step="${key === 'random' ? '1' : 'any'}"
           style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
-          @blur=${(e: Event) => onChangeCallback((e.target as HTMLInputElement).value)}
+          @blur=${(e: Event) => {
+            const numValue = (e.target as HTMLInputElement).value;
+            const newValue = parsed.operator === '=' ? numValue : `${parsed.operator}${numValue}`;
+            onChangeCallback(newValue);
+          }}
         />
       `;
     }
 
-    // Default: text input
+    // Default: text input with optional negation
     return html`
+      <label style="display: flex; align-items: center; gap: 4px; white-space: nowrap;">
+        <input
+          type="checkbox"
+          .checked=${parsed.operator === '!'}
+          @change=${(e: Event) => {
+            const checked = (e.target as HTMLInputElement).checked;
+            const newValue = checked ? `!${parsed.value}` : parsed.value;
+            onChangeCallback(newValue);
+          }}
+          title="Negate condition"
+        />
+        <span style="font-size: 0.85em;">not</span>
+      </label>
       <input
         type="text"
-        .value="${valueStr}"
-        placeholder="value (comma-separated for multiple)"
+        .value="${parsed.value}"
+        placeholder="value"
         style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
-        @blur=${(e: Event) => onChangeCallback((e.target as HTMLInputElement).value)}
+        @blur=${(e: Event) => {
+          const textValue = (e.target as HTMLInputElement).value;
+          onChangeCallback(parsed.operator === '!' ? `!${textValue}` : textValue);
+        }}
       />
     `;
   }
