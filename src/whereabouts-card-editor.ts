@@ -426,6 +426,10 @@ export class WhereaboutsCardEditor extends LitElement {
     const valueStr = value.trim();
 
     if (inputType === 'number') {
+      // Check if value contains comma (indicates oneOf / multiple values)
+      if (valueStr.includes(',')) {
+        return { operator: 'oneOf', value: valueStr };
+      }
       // Check for numeric operators: >=, <=, !=, <>, >, <, =
       const match = valueStr.match(/^(>=|<=|!=|<>|>|<|=)(.*)$/);
       if (match) {
@@ -439,7 +443,12 @@ export class WhereaboutsCardEditor extends LitElement {
       return { operator: '!', value: valueStr.substring(1) };
     }
 
-    return { operator: '', value: valueStr };
+    // Check if value contains comma (indicates oneOf / multiple values)
+    if (valueStr.includes(',')) {
+      return { operator: 'oneOf', value: valueStr };
+    }
+
+    return { operator: '=', value: valueStr };
   }
 
   /**
@@ -453,36 +462,61 @@ export class WhereaboutsCardEditor extends LitElement {
     if (inputType === 'select') {
       const options = this.getConditionValueOptions(key);
       return html`
-        <label style="display: flex; align-items: center; gap: 4px; white-space: nowrap;">
-          <input
-            type="checkbox"
-            .checked=${parsed.operator === '!'}
-            @change=${(e: Event) => {
-              const checked = (e.target as HTMLInputElement).checked;
-              const newValue = checked ? `!${parsed.value}` : parsed.value;
-              onChangeCallback(newValue);
-            }}
-            title="Negate condition"
-          />
-          <span style="font-size: 0.85em;">not</span>
-        </label>
         <select
-          .value="${parsed.value}"
-          style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+          .value="${parsed.operator}"
+          style="width: 80px; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
           @change=${(e: Event) => {
-            const newValue = (e.target as HTMLSelectElement).value;
-            onChangeCallback(parsed.operator === '!' ? `!${newValue}` : newValue);
+            const operator = (e.target as HTMLSelectElement).value;
+            let newValue = parsed.value;
+            if (operator === '!') {
+              newValue = `!${parsed.value}`;
+            } else if (operator === 'oneOf') {
+              // Keep comma-separated value as-is
+              newValue = parsed.value;
+            } else {
+              // operator === '=' (equals)
+              newValue = parsed.value;
+            }
+            onChangeCallback(newValue);
           }}
         >
-          <option value="">Select...</option>
-          ${options.map(option => html`
-            <option value="${option}" ?selected=${parsed.value === option}>
-              ${key === 'who'
-                ? (this._config.persons?.find(p => p.entity_id === option)?.name || this.hass?.states[option]?.attributes?.friendly_name || option)
-                : option}
-            </option>
-          `)}
+          <option value="=" ?selected=${parsed.operator === '='}>=</option>
+          <option value="!" ?selected=${parsed.operator === '!'}≠ (not)</option>
+          <option value="oneOf" ?selected=${parsed.operator === 'oneOf'}>oneOf</option>
         </select>
+        ${parsed.operator === 'oneOf'
+          ? html`
+              <input
+                type="text"
+                .value="${parsed.value}"
+                placeholder="value1, value2, value3"
+                style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+                @blur=${(e: Event) => {
+                  const textValue = (e.target as HTMLInputElement).value;
+                  onChangeCallback(textValue);
+                }}
+              />
+            `
+          : html`
+              <select
+                .value="${parsed.value}"
+                style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+                @change=${(e: Event) => {
+                  const selectValue = (e.target as HTMLSelectElement).value;
+                  const newValue = parsed.operator === '!' ? `!${selectValue}` : selectValue;
+                  onChangeCallback(newValue);
+                }}
+              >
+                <option value="">Select...</option>
+                ${options.map(option => html`
+                  <option value="${option}" ?selected=${parsed.value === option}>
+                    ${key === 'who'
+                      ? (this._config.persons?.find(p => p.entity_id === option)?.name || this.hass?.states[option]?.attributes?.friendly_name || option)
+                      : option}
+                  </option>
+                `)}
+              </select>
+            `}
       `;
     }
 
@@ -490,10 +524,18 @@ export class WhereaboutsCardEditor extends LitElement {
       return html`
         <select
           .value="${parsed.operator}"
-          style="width: 60px; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+          style="width: 80px; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
           @change=${(e: Event) => {
             const operator = (e.target as HTMLSelectElement).value;
-            const newValue = operator === '=' ? parsed.value : `${operator}${parsed.value}`;
+            let newValue = parsed.value;
+            if (operator === 'oneOf') {
+              // Keep comma-separated value as-is
+              newValue = parsed.value;
+            } else if (operator === '=') {
+              newValue = parsed.value;
+            } else {
+              newValue = `${operator}${parsed.value}`;
+            }
             onChangeCallback(newValue);
           }}
         >
@@ -503,47 +545,79 @@ export class WhereaboutsCardEditor extends LitElement {
           <option value="<" ?selected=${parsed.operator === '<'}>&lt;</option>
           <option value=">=" ?selected=${parsed.operator === '>='}≥</option>
           <option value="<=" ?selected=${parsed.operator === '<='}≤</option>
+          <option value="oneOf" ?selected=${parsed.operator === 'oneOf'}>oneOf</option>
         </select>
-        <input
-          type="number"
-          .value="${parsed.value}"
-          placeholder="${key === 'random' ? '0-100' : 'value'}"
-          min="${key === 'random' ? '0' : ''}"
-          max="${key === 'random' ? '100' : ''}"
-          step="${key === 'random' ? '1' : 'any'}"
-          style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
-          @blur=${(e: Event) => {
-            const numValue = (e.target as HTMLInputElement).value;
-            const newValue = parsed.operator === '=' ? numValue : `${parsed.operator}${numValue}`;
-            onChangeCallback(newValue);
-          }}
-        />
+        ${parsed.operator === 'oneOf'
+          ? html`
+              <input
+                type="text"
+                .value="${parsed.value}"
+                placeholder="10, 20, 30"
+                style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+                @blur=${(e: Event) => {
+                  const textValue = (e.target as HTMLInputElement).value;
+                  onChangeCallback(textValue);
+                }}
+              />
+            `
+          : html`
+              <input
+                type="number"
+                .value="${parsed.value}"
+                placeholder="${key === 'random' ? '0-100' : 'value'}"
+                min="${key === 'random' ? '0' : ''}"
+                max="${key === 'random' ? '100' : ''}"
+                step="${key === 'random' ? '1' : 'any'}"
+                style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+                @blur=${(e: Event) => {
+                  const numValue = (e.target as HTMLInputElement).value;
+                  const newValue = parsed.operator === '=' ? numValue : `${parsed.operator}${numValue}`;
+                  onChangeCallback(newValue);
+                }}
+              />
+            `}
       `;
     }
 
-    // Default: text input with optional negation
+    // Default: text input with operator selection
     return html`
-      <label style="display: flex; align-items: center; gap: 4px; white-space: nowrap;">
-        <input
-          type="checkbox"
-          .checked=${parsed.operator === '!'}
-          @change=${(e: Event) => {
-            const checked = (e.target as HTMLInputElement).checked;
-            const newValue = checked ? `!${parsed.value}` : parsed.value;
-            onChangeCallback(newValue);
-          }}
-          title="Negate condition"
-        />
-        <span style="font-size: 0.85em;">not</span>
-      </label>
+      <select
+        .value="${parsed.operator}"
+        style="width: 80px; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+        @change=${(e: Event) => {
+          const operator = (e.target as HTMLSelectElement).value;
+          let newValue = parsed.value;
+          if (operator === '!') {
+            newValue = `!${parsed.value}`;
+          } else if (operator === 'oneOf') {
+            // Keep comma-separated value as-is
+            newValue = parsed.value;
+          } else {
+            // operator === '=' (equals)
+            newValue = parsed.value;
+          }
+          onChangeCallback(newValue);
+        }}
+      >
+        <option value="=" ?selected=${parsed.operator === '='}>=</option>
+        <option value="!" ?selected=${parsed.operator === '!'}≠ (not)</option>
+        <option value="oneOf" ?selected=${parsed.operator === 'oneOf'}>oneOf</option>
+      </select>
       <input
         type="text"
         .value="${parsed.value}"
-        placeholder="value"
+        placeholder="${parsed.operator === 'oneOf' ? 'value1, value2, value3' : 'value'}"
         style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
         @blur=${(e: Event) => {
           const textValue = (e.target as HTMLInputElement).value;
-          onChangeCallback(parsed.operator === '!' ? `!${textValue}` : textValue);
+          let newValue = textValue;
+          if (parsed.operator === '!') {
+            newValue = `!${textValue}`;
+          } else if (parsed.operator === 'oneOf') {
+            // Keep comma-separated value as-is
+            newValue = textValue;
+          }
+          onChangeCallback(newValue);
         }}
       />
     `;
