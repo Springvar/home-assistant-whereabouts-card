@@ -437,7 +437,9 @@ export class WhereaboutsCardEditor extends LitElement {
           <option value="">Select...</option>
           ${options.map(option => html`
             <option value="${option}" ?selected=${valueStr === option}>
-              ${key === 'who' ? (this.hass?.states[option]?.attributes?.friendly_name || option) : option}
+              ${key === 'who'
+                ? (this._config.persons?.find(p => p.entity_id === option)?.name || this.hass?.states[option]?.attributes?.friendly_name || option)
+                : option}
             </option>
           `)}
         </select>
