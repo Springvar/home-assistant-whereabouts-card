@@ -29,6 +29,17 @@ export class WhereaboutsCardEditor extends LitElement {
     return Array.from(icons).sort();
   }
 
+  get uniqueNamedSensors(): string[] {
+    const sensorNames = new Set<string>();
+    // Collect unique sensor names from all persons
+    for (const person of this._config.persons || []) {
+      if (person.namedSensors) {
+        Object.keys(person.namedSensors).forEach(name => sensorNames.add(name));
+      }
+    }
+    return Array.from(sensorNames).sort();
+  }
+
   get trackedEntities(): string[] {
     const tracked = new Set<string>();
 
@@ -689,21 +700,14 @@ export class WhereaboutsCardEditor extends LitElement {
                     : ''}
                 </div>
                 <datalist id="condition-key-suggestions-${idx}">
-                  <option value="random">
-                  <option value="user">
-                  <option value="when">
                   <option value="who">
                   <option value="where">
-                  <option value="is_workday">
-                  <option value="is_work_hours">
-                  <option value="is_night">
-                  <option value="is_morning">
-                  <option value="is_afternoon">
-                  <option value="is_evening">
-                  <option value="day">
-                  ${person.namedSensors ? Object.keys(person.namedSensors).map(sensorName => html`
+                  <option value="when">
+                  <option value="user">
+                  <option value="random">
+                  ${this.uniqueNamedSensors.map(sensorName => html`
                     <option value="${sensorName}">
-                  `) : ''}
+                  `)}
                 </datalist>
                 <button @click=${() => this._addHideIfCondition(idx)} style="margin-top: 0.5em;">+ Add Condition</button>
               </div>
@@ -1053,22 +1057,14 @@ export class WhereaboutsCardEditor extends LitElement {
                     : ''}
                 </div>
                 <datalist id="zone-group-condition-suggestions-${gidx}">
-                  <option value="random">
                   <option value="who">
-                  <option value="user">
+                  <option value="where">
                   <option value="when">
-                  <option value="is_workday">
-                  <option value="is_work_hours">
-                  <option value="is_night">
-                  <option value="is_morning">
-                  <option value="is_afternoon">
-                  <option value="is_evening">
-                  <option value="day">
-                  ${(this._config.persons || []).flatMap(person =>
-                    person.namedSensors ? Object.keys(person.namedSensors).map(sensorName => html`
-                      <option value="${sensorName}">
-                    `) : []
-                  )}
+                  <option value="user">
+                  <option value="random">
+                  ${this.uniqueNamedSensors.map(sensorName => html`
+                    <option value="${sensorName}">
+                  `)}
                 </datalist>
                 <button @click=${() => this._addZoneGroupCondition(gidx)} style="margin-top: 0.5em;">+ Add Condition</button>
               </div>
@@ -1469,23 +1465,14 @@ export class WhereaboutsCardEditor extends LitElement {
       </datalist>
 
       <datalist id="activity-condition-suggestions">
-        <option value="random">
         <option value="who">
         <option value="where">
-        <option value="user">
         <option value="when">
-        <option value="is_workday">
-        <option value="is_work_hours">
-        <option value="is_night">
-        <option value="is_morning">
-        <option value="is_afternoon">
-        <option value="is_evening">
-        <option value="day">
-        ${(this._config.persons || []).flatMap(person =>
-          person.namedSensors ? Object.keys(person.namedSensors).map(sensorName => html`
-            <option value="${sensorName}">
-          `) : []
-        )}
+        <option value="user">
+        <option value="random">
+        ${this.uniqueNamedSensors.map(sensorName => html`
+          <option value="${sensorName}">
+        `)}
       </datalist>
   `;
 }
