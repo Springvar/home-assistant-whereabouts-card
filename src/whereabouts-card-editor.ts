@@ -190,6 +190,122 @@ export class WhereaboutsCardEditor extends LitElement {
     return this.hass.states[entityId]?.attributes?.friendly_name || entityId;
   }
 
+  /**
+   * Get the appropriate input type for a condition value field
+   */
+  getConditionValueInputType(key: string): 'select' | 'number' | 'text' {
+    if (key === 'who' || key === 'when' || key === 'where') {
+      return 'select';
+    }
+    if (key === 'random') {
+      return 'number';
+    }
+    if (key === 'user') {
+      return 'text'; // Users not available in frontend
+    }
+
+    // Check if it's a named sensor
+    if (this.uniqueNamedSensors.includes(key)) {
+      // Try to determine sensor type from first person that has this sensor
+      for (const person of this._config.persons || []) {
+        if (person.namedSensors?.[key]) {
+          const entityIds = Array.isArray(person.namedSensors[key].entity_id)
+            ? person.namedSensors[key].entity_id
+            : [person.namedSensors[key].entity_id];
+
+          const firstEntityId = entityIds[0];
+          if (!firstEntityId) continue;
+
+          const entity = this.hass?.states[firstEntityId];
+          if (!entity) continue;
+
+          const domain = firstEntityId.split('.')[0];
+
+          // Binary sensors can use select with on/off
+          if (domain === 'binary_sensor') {
+            return 'select';
+          }
+
+          // Numeric sensors
+          if (domain === 'sensor') {
+            const state = entity.state;
+            if (!isNaN(parseFloat(state)) && state !== 'unknown' && state !== 'unavailable') {
+              return 'number';
+            }
+          }
+
+          // Check if entity has a defined set of states (like input_select)
+          if (domain === 'input_select' && entity.attributes?.options) {
+            return 'select';
+          }
+
+          break;
+        }
+      }
+    }
+
+    return 'text';
+  }
+
+  /**
+   * Get available options for select-type condition values
+   */
+  getConditionValueOptions(key: string): string[] {
+    if (key === 'who') {
+      return (this._config.persons || []).map(p => p.entity_id);
+    }
+
+    if (key === 'when') {
+      return ['night', 'morning', 'afternoon', 'evening', 'weekday', 'weekend', 'afterschool'];
+    }
+
+    if (key === 'where') {
+      // Get all zones
+      const zones = this.hass ? Object.keys(this.hass.states).filter(id => id.startsWith('zone.')) : [];
+
+      // Get zone group names
+      const zoneGroupNames = (this._config.zone_groups || [])
+        .filter(g => g.name)
+        .map(g => g.name as string);
+
+      return [...zones, ...zoneGroupNames];
+    }
+
+    // Check if it's a named sensor
+    if (this.uniqueNamedSensors.includes(key)) {
+      // Try to get possible values from sensor
+      for (const person of this._config.persons || []) {
+        if (person.namedSensors?.[key]) {
+          const entityIds = Array.isArray(person.namedSensors[key].entity_id)
+            ? person.namedSensors[key].entity_id
+            : [person.namedSensors[key].entity_id];
+
+          const firstEntityId = entityIds[0];
+          if (!firstEntityId) continue;
+
+          const entity = this.hass?.states[firstEntityId];
+          if (!entity) continue;
+
+          const domain = firstEntityId.split('.')[0];
+
+          // Binary sensors have on/off
+          if (domain === 'binary_sensor') {
+            return ['on', 'off'];
+          }
+
+          // Input select has defined options
+          if (domain === 'input_select' && entity.attributes?.options) {
+            return entity.attributes.options;
+          }
+
+          break;
+        }
+      }
+    }
+
+    return [];
+  }
+
   validateConditionValue(key: string, value: string | string[]): { valid: boolean; error?: string } {
     const val = Array.isArray(value) ? value.join(', ') : value;
 
@@ -301,6 +417,58 @@ export class WhereaboutsCardEditor extends LitElement {
     }
 
     return { valid: true };
+  }
+
+  /**
+   * Render the appropriate input for a condition value based on the key
+   */
+  renderConditionValueInput(key: string, value: string | string[], onChangeCallback: (newValue: string) => void, validation: { valid: boolean; error?: string }) {
+    const inputType = this.getConditionValueInputType(key);
+    const valueStr = Array.isArray(value) ? value.join(', ') : value;
+
+    if (inputType === 'select') {
+      const options = this.getConditionValueOptions(key);
+      return html`
+        <select
+          .value="${valueStr}"
+          style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+          @change=${(e: Event) => onChangeCallback((e.target as HTMLSelectElement).value)}
+        >
+          <option value="">Select...</option>
+          ${options.map(option => html`
+            <option value="${option}" ?selected=${valueStr === option}>
+              ${key === 'who' ? (this.hass?.states[option]?.attributes?.friendly_name || option) : option}
+            </option>
+          `)}
+        </select>
+      `;
+    }
+
+    if (inputType === 'number') {
+      return html`
+        <input
+          type="number"
+          .value="${valueStr}"
+          placeholder="${key === 'random' ? '0-100 (or 0-1)' : 'value'}"
+          min="${key === 'random' ? '0' : ''}"
+          max="${key === 'random' ? '100' : ''}"
+          step="${key === 'random' ? '1' : 'any'}"
+          style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+          @blur=${(e: Event) => onChangeCallback((e.target as HTMLInputElement).value)}
+        />
+      `;
+    }
+
+    // Default: text input
+    return html`
+      <input
+        type="text"
+        .value="${valueStr}"
+        placeholder="value (comma-separated for multiple)"
+        style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+        @blur=${(e: Event) => onChangeCallback((e.target as HTMLInputElement).value)}
+      />
+    `;
   }
 
   setConfig(config: WhereaboutsCardConfig) {
@@ -687,13 +855,7 @@ export class WhereaboutsCardEditor extends LitElement {
                               <option value="${sensorName}" ?selected=${key === sensorName}>${sensorName}</option>
                             `)}
                           </select>
-                          <input
-                            type="text"
-                            value="${Array.isArray(value) ? value.join(', ') : value}"
-                            placeholder="value (comma-separated for multiple)"
-                            style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
-                            @blur=${(e: Event) => this._updateHideIfConditionValue(idx, key, (e.target as HTMLInputElement).value)}
-                          />
+                          ${this.renderConditionValueInput(key, value, (newValue) => this._updateHideIfConditionValue(idx, key, newValue), validation)}
                           <button class="icon-button" @click=${() => this._removeHideIfCondition(idx, key)} title="Remove">🗑️</button>
                         </div>
                         ${!validation.valid ? html`
@@ -843,13 +1005,7 @@ export class WhereaboutsCardEditor extends LitElement {
                               <option value="${sensorName}" ?selected=${key === sensorName}>${sensorName}</option>
                             `)}
                           </select>
-                          <input
-                            type="text"
-                            value="${Array.isArray(value) ? value.join(', ') : value}"
-                            placeholder="value (comma-separated for multiple)"
-                            style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
-                            @blur=${(e: Event) => this._updateActivityConditionValue(idx, key, (e.target as HTMLInputElement).value)}
-                          />
+                          ${this.renderConditionValueInput(key, value, (newValue) => this._updateActivityConditionValue(idx, key, newValue), validation)}
                           <button class="icon-button" @click=${() => this._removeActivityCondition(idx, key)} title="Remove">🗑️</button>
                         </div>
                         ${!validation.valid ? html`
@@ -1048,14 +1204,7 @@ export class WhereaboutsCardEditor extends LitElement {
                               <option value="${sensorName}" ?selected=${key === sensorName}>${sensorName}</option>
                             `)}
                           </select>
-                          />
-                          <input
-                            type="text"
-                            value="${Array.isArray(value) ? value.join(', ') : value}"
-                            placeholder="value (comma-separated for multiple)"
-                            style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
-                            @blur=${(e: Event) => this._updateZoneGroupConditionValue(gidx, key, (e.target as HTMLInputElement).value)}
-                          />
+                          ${this.renderConditionValueInput(key, value, (newValue) => this._updateZoneGroupConditionValue(gidx, key, newValue), validation)}
                           <button class="icon-button" @click=${() => this._removeZoneGroupCondition(gidx, key)} title="Remove">🗑️</button>
                         </div>
                         ${!validation.valid ? html`
@@ -1191,14 +1340,7 @@ export class WhereaboutsCardEditor extends LitElement {
                                       <option value="${sensorName}" ?selected=${key === sensorName}>${sensorName}</option>
                                     `)}
                                   </select>
-                                  />
-                                  <input
-                                    type="text"
-                                    value="${Array.isArray(value) ? value.join(', ') : value}"
-                                    placeholder="value (comma-separated for multiple)"
-                                    style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
-                                    @blur=${(e: Event) => this._updateZoneGroupActivityConditionValue(gidx, aidx, key, (e.target as HTMLInputElement).value)}
-                                  />
+                                  ${this.renderConditionValueInput(key, value, (newValue) => this._updateZoneGroupActivityConditionValue(gidx, aidx, key, newValue), validation)}
                                   <button class="icon-button" @click=${() => this._removeZoneGroupActivityCondition(gidx, aidx, key)} title="Remove">🗑️</button>
                                 </div>
                                 ${!validation.valid ? html`
