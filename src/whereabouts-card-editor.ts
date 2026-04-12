@@ -309,14 +309,19 @@ export class WhereaboutsCardEditor extends LitElement {
   validateConditionValue(key: string, value: string | string[]): { valid: boolean; error?: string } {
     const val = Array.isArray(value) ? value.join(', ') : value;
 
+    // Strip operator prefix before validation
+    const inputType = this.getConditionValueInputType(key);
+    const parsed = this.parseConditionOperator(val, inputType);
+    const valueWithoutOperator = parsed.value;
+
     if (key === 'random') {
-      return this.validateRandomValue(val);
+      return this.validateRandomValue(valueWithoutOperator);
     } else if (key === 'when') {
-      return this.validateWhenValue(val);
+      return this.validateWhenValue(valueWithoutOperator);
     } else if (key === 'who') {
-      return this.validateWhoValue(val);
+      return this.validateWhoValue(valueWithoutOperator);
     } else if (key === 'where') {
-      return this.validateWhereValue(val);
+      return this.validateWhereValue(valueWithoutOperator);
     }
 
     return { valid: true };
@@ -327,7 +332,7 @@ export class WhereaboutsCardEditor extends LitElement {
 
     const trimmed = value.trim();
 
-    // Check percentage format
+    // Check percentage format with % suffix
     if (trimmed.endsWith('%')) {
       const num = parseFloat(trimmed.slice(0, -1));
       if (isNaN(num) || num < 0 || num > 100) {
@@ -336,10 +341,10 @@ export class WhereaboutsCardEditor extends LitElement {
       return { valid: true };
     }
 
-    // Check decimal format
+    // Accept both 0-100 (percentage) and 0-1 (decimal) formats without % suffix
     const num = parseFloat(trimmed);
-    if (isNaN(num) || num < 0 || num > 1) {
-      return { valid: false, error: 'Must be 0-100% or 0-1' };
+    if (isNaN(num) || num < 0 || num > 100) {
+      return { valid: false, error: 'Must be 0-100 or 0-1' };
     }
     return { valid: true };
   }
@@ -464,7 +469,7 @@ export class WhereaboutsCardEditor extends LitElement {
       return html`
         <select
           .value="${parsed.operator}"
-          style="width: 80px; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+          style="width: 70px; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
           @change=${(e: Event) => {
             const operator = (e.target as HTMLSelectElement).value;
             let newValue = parsed.value;
@@ -480,9 +485,9 @@ export class WhereaboutsCardEditor extends LitElement {
             onChangeCallback(newValue);
           }}
         >
-          <option value="=" ?selected=${parsed.operator === '='}>=</option>
-          <option value="!" ?selected=${parsed.operator === '!'}≠ (not)</option>
-          <option value="oneOf" ?selected=${parsed.operator === 'oneOf'}>oneOf</option>
+          <option value="=">=</option>
+          <option value="!">≠ (not)</option>
+          <option value="oneOf">oneOf</option>
         </select>
         ${parsed.operator === 'oneOf'
           ? html`
@@ -509,7 +514,7 @@ export class WhereaboutsCardEditor extends LitElement {
               >
                 <option value="">Select...</option>
                 ${options.map(option => html`
-                  <option value="${option}" ?selected=${parsed.value === option}>
+                  <option value="${option}">
                     ${key === 'who'
                       ? (this._config.persons?.find(p => p.entity_id === option)?.name || this.hass?.states[option]?.attributes?.friendly_name || option)
                       : option}
@@ -524,7 +529,7 @@ export class WhereaboutsCardEditor extends LitElement {
       return html`
         <select
           .value="${parsed.operator}"
-          style="width: 80px; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+          style="width: 70px; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
           @change=${(e: Event) => {
             const operator = (e.target as HTMLSelectElement).value;
             let newValue = parsed.value;
@@ -599,9 +604,9 @@ export class WhereaboutsCardEditor extends LitElement {
           onChangeCallback(newValue);
         }}
       >
-        <option value="=" ?selected=${parsed.operator === '='}>=</option>
-        <option value="!" ?selected=${parsed.operator === '!'}≠ (not)</option>
-        <option value="oneOf" ?selected=${parsed.operator === 'oneOf'}>oneOf</option>
+        <option value="=">=</option>
+        <option value="!">≠ (not)</option>
+        <option value="oneOf">oneOf</option>
       </select>
       <input
         type="text"
@@ -1479,7 +1484,7 @@ export class WhereaboutsCardEditor extends LitElement {
                                 <div style="display: flex; gap: 0.5em; align-items: center;">
                                   <select
                                     .value="${key}"
-                                    style="width: 120px;"
+                                    style="width: 100px;"
                                     @change=${(e: Event) => this._updateZoneGroupActivityConditionKey(gidx, aidx, key, (e.target as HTMLSelectElement).value)}
                                   >
                                     <option value="" ?selected=${!key}>Select...</option>
