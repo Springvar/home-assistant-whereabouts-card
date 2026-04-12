@@ -1395,18 +1395,18 @@ export class WhereaboutsCardEditor extends LitElement {
       </details>
 
       <!-- LISTENING INFO -->
-      <h3>Listens to (${this.trackedEntities.length} entities)</h3>
+      <h3>Listens to (${this.trackedEntities.filter(eid => !eid.startsWith('zone.')).length} entities)</h3>
       <p style="font-size: 0.9em; color: #666; margin-bottom: 0.5em;">
         The card monitors these entities for state changes:
       </p>
       <div>
         <ul style="list-style: none; padding: 0; margin: 0;">
-          ${[...this.trackedEntities].sort((a, b) => {
-            // Sort: person first, then sensors/inputs, then zones last
+          ${[...this.trackedEntities].filter(eid => !eid.startsWith('zone.')).sort((a, b) => {
+            // Sort: person first, then sensors/inputs/timers
             const domainA = a.split('.')[0];
             const domainB = b.split('.')[0];
-            const orderA = domainA === 'person' ? 0 : domainA === 'zone' ? 2 : 1;
-            const orderB = domainB === 'person' ? 0 : domainB === 'zone' ? 2 : 1;
+            const orderA = domainA === 'person' ? 0 : 1;
+            const orderB = domainB === 'person' ? 0 : 1;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b); // Alphabetical within same category
           }).map(entityId => {
@@ -1414,9 +1414,15 @@ export class WhereaboutsCardEditor extends LitElement {
             const state = entity?.state || 'unavailable';
             const domain = entityId.split('.')[0];
 
+            // Color coding: green=person, blue=sensor, orange=input, brown=timer
+            let color = '#ff9800'; // Default orange for inputs
+            if (domain === 'person') color = '#4caf50'; // Green
+            else if (domain === 'sensor' || domain === 'binary_sensor') color = '#2196f3'; // Blue
+            else if (domain === 'timer') color = '#795548'; // Brown
+
             return html`
               <li style="margin-bottom: 0.25em; padding: 0.25em; display: flex; align-items: center; gap: 0.5em; font-size: 0.9em;">
-                <span style="display: inline-block; padding: 0.15em 0.4em; background: ${domain === 'person' ? '#4caf50' : domain === 'zone' ? '#2196f3' : '#ff9800'}; color: white; border-radius: 3px; font-size: 0.7em; font-weight: bold; min-width: 45px; text-align: center;">${domain}</span>
+                <span style="display: inline-block; padding: 0.15em 0.4em; background: ${color}; color: white; border-radius: 3px; font-size: 0.7em; font-weight: bold; min-width: 45px; text-align: center;">${domain}</span>
                 <span style="font-family: monospace; font-size: 0.85em;">${entityId}</span>
                 <span style="margin-left: auto; color: #666; font-size: 0.85em;">${state}</span>
               </li>
