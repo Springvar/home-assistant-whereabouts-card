@@ -40,11 +40,6 @@ export class WhereaboutsCardEditor extends LitElement {
     return Array.from(sensorNames).sort();
   }
 
-  isStandardConditionKey(key: string): boolean {
-    const standardKeys = ['who', 'where', 'when', 'user', 'random'];
-    return standardKeys.includes(key) || this.uniqueNamedSensors.includes(key);
-  }
-
   get trackedEntities(): string[] {
     const tracked = new Set<string>();
 
@@ -199,27 +194,24 @@ export class WhereaboutsCardEditor extends LitElement {
    * Get the appropriate input type for a condition value field
    */
   getConditionValueInputType(key: string): 'select' | 'number' | 'text' {
-    // Strip __custom__: prefix if present
-    const actualKey = key.startsWith('__custom__:') ? key.substring('__custom__:'.length) : key;
-
-    if (actualKey === 'who' || actualKey === 'when' || actualKey === 'where') {
+    if (key === 'who' || key === 'when' || key === 'where') {
       return 'select';
     }
-    if (actualKey === 'random') {
+    if (key === 'random') {
       return 'number';
     }
-    if (actualKey === 'user') {
+    if (key === 'user') {
       return 'text'; // Users not available in frontend
     }
 
     // Check if it's a named sensor
-    if (this.uniqueNamedSensors.includes(actualKey)) {
+    if (this.uniqueNamedSensors.includes(key)) {
       // Try to determine sensor type from first person that has this sensor
       for (const person of this._config.persons || []) {
-        if (person.namedSensors?.[actualKey]) {
-          const entityIds = Array.isArray(person.namedSensors[actualKey].entity_id)
-            ? person.namedSensors[actualKey].entity_id
-            : [person.namedSensors[actualKey].entity_id];
+        if (person.namedSensors?.[key]) {
+          const entityIds = Array.isArray(person.namedSensors[key].entity_id)
+            ? person.namedSensors[key].entity_id
+            : [person.namedSensors[key].entity_id];
 
           const firstEntityId = entityIds[0];
           if (!firstEntityId) continue;
@@ -259,18 +251,15 @@ export class WhereaboutsCardEditor extends LitElement {
    * Get available options for select-type condition values
    */
   getConditionValueOptions(key: string): string[] {
-    // Strip __custom__: prefix if present
-    const actualKey = key.startsWith('__custom__:') ? key.substring('__custom__:'.length) : key;
-
-    if (actualKey === 'who') {
+    if (key === 'who') {
       return (this._config.persons || []).map(p => p.entity_id);
     }
 
-    if (actualKey === 'when') {
+    if (key === 'when') {
       return ['night', 'morning', 'afternoon', 'evening', 'weekday', 'weekend', 'afterschool'];
     }
 
-    if (actualKey === 'where') {
+    if (key === 'where') {
       // Get all zones
       const zones = this.hass ? Object.keys(this.hass.states).filter(id => id.startsWith('zone.')) : [];
 
@@ -283,13 +272,13 @@ export class WhereaboutsCardEditor extends LitElement {
     }
 
     // Check if it's a named sensor
-    if (this.uniqueNamedSensors.includes(actualKey)) {
+    if (this.uniqueNamedSensors.includes(key)) {
       // Try to get possible values from sensor
       for (const person of this._config.persons || []) {
-        if (person.namedSensors?.[actualKey]) {
-          const entityIds = Array.isArray(person.namedSensors[actualKey].entity_id)
-            ? person.namedSensors[actualKey].entity_id
-            : [person.namedSensors[actualKey].entity_id];
+        if (person.namedSensors?.[key]) {
+          const entityIds = Array.isArray(person.namedSensors[key].entity_id)
+            ? person.namedSensors[key].entity_id
+            : [person.namedSensors[key].entity_id];
 
           const firstEntityId = entityIds[0];
           if (!firstEntityId) continue;
@@ -465,78 +454,6 @@ export class WhereaboutsCardEditor extends LitElement {
     }
 
     return { operator: '=', value: valueStr };
-  }
-
-  /**
-   * Render condition key input (dropdown or text input for custom keys like "discord.game")
-   */
-  renderConditionKeyInput(currentKey: string, onChangeCallback: (newKey: string) => void, width: string = '120px'): any {
-    const isCustom = (currentKey && !this.isStandardConditionKey(currentKey)) || currentKey === '__custom__' || currentKey.startsWith('__custom__:');
-
-    if (isCustom) {
-      // Show text input for custom keys (e.g., "discord.game")
-      // If key starts with '__custom__:', extract the pre-populated sensor name
-      let displayValue = '';
-      if (currentKey.startsWith('__custom__:')) {
-        displayValue = currentKey.substring('__custom__:'.length);
-      } else if (currentKey !== '__custom__') {
-        displayValue = currentKey;
-      }
-
-      return html`
-        <input
-          type="text"
-          .value="${displayValue}"
-          placeholder="sensor.attr"
-          style="width: ${width};"
-          @blur=${(e: Event) => {
-            const newKey = (e.target as HTMLInputElement).value.trim();
-            if (newKey && newKey !== currentKey && !newKey.startsWith('__custom__')) {
-              onChangeCallback(newKey);
-            } else if (!newKey) {
-              // User cleared the input - switch back to dropdown
-              onChangeCallback('');
-            }
-          }}
-          @keydown=${(e: KeyboardEvent) => {
-            if (e.key === 'Enter') {
-              const newKey = (e.target as HTMLInputElement).value.trim();
-              if (newKey && newKey !== currentKey && !newKey.startsWith('__custom__')) {
-                onChangeCallback(newKey);
-              }
-            }
-          }}
-        />
-      `;
-    }
-
-    // Show dropdown with "Custom..." option
-    return html`
-      <select
-        .value="${currentKey}"
-        style="width: ${width};"
-        @change=${(e: Event) => {
-          const newKey = (e.target as HTMLSelectElement).value;
-          if (newKey === '__custom__') {
-            // User selected "Custom..." - trigger custom mode
-            onChangeCallback('__custom__');
-          } else {
-            onChangeCallback(newKey);
-          }
-        }}
-      >
-        <option value="">Select...</option>
-        <option value="who">who</option>
-        <option value="where">where</option>
-        <option value="when">when</option>
-        <option value="user">user</option>
-        <option value="random">random</option>
-        ${this.uniqueNamedSensors.map(sensorName => html`
-          <option value="${sensorName}">${sensorName}</option>
-        `)}
-        <option value="__custom__">Custom...</option>
-      </select>
-    `;
   }
 
   /**
@@ -1080,7 +997,21 @@ export class WhereaboutsCardEditor extends LitElement {
                       return html`
                       <div style="margin-bottom: 0.5em;">
                         <div style="display: flex; gap: 0.5em; align-items: center;">
-                          ${this.renderConditionKeyInput(key, (newKey) => this._updateHideIfConditionKey(idx, key, newKey))}
+                          <select
+                            .value="${key}"
+                            style="width: 120px;"
+                            @change=${(e: Event) => this._updateHideIfConditionKey(idx, key, (e.target as HTMLSelectElement).value)}
+                          >
+                            <option value="">Select...</option>
+                            <option value="who">who</option>
+                            <option value="where">where</option>
+                            <option value="when">when</option>
+                            <option value="user">user</option>
+                            <option value="random">random</option>
+                            ${this.uniqueNamedSensors.map(sensorName => html`
+                              <option value="${sensorName}">${sensorName}</option>
+                            `)}
+                          </select>
                           ${this.renderConditionValueInput(key, value, (newValue) => this._updateHideIfConditionValue(idx, key, newValue), validation)}
                           <button class="icon-button" @click=${() => this._removeHideIfCondition(idx, key)} title="Remove">🗑️</button>
                         </div>
@@ -1216,7 +1147,21 @@ export class WhereaboutsCardEditor extends LitElement {
                       return html`
                       <div style="margin-bottom: 0.5em;">
                         <div style="display: flex; gap: 0.5em; align-items: center;">
-                          ${this.renderConditionKeyInput(key, (newKey) => this._updateActivityConditionKey(idx, key, newKey))}
+                          <select
+                            .value="${key}"
+                            style="width: 120px;"
+                            @change=${(e: Event) => this._updateActivityConditionKey(idx, key, (e.target as HTMLSelectElement).value)}
+                          >
+                            <option value="">Select...</option>
+                            <option value="who">who</option>
+                            <option value="where">where</option>
+                            <option value="when">when</option>
+                            <option value="user">user</option>
+                            <option value="random">random</option>
+                            ${this.uniqueNamedSensors.map(sensorName => html`
+                              <option value="${sensorName}">${sensorName}</option>
+                            `)}
+                          </select>
                           ${this.renderConditionValueInput(key, value, (newValue) => this._updateActivityConditionValue(idx, key, newValue), validation)}
                           <button class="icon-button" @click=${() => this._removeActivityCondition(idx, key)} title="Remove">🗑️</button>
                         </div>
@@ -1401,7 +1346,21 @@ export class WhereaboutsCardEditor extends LitElement {
                       return html`
                       <div style="margin-bottom: 0.5em;">
                         <div style="display: flex; gap: 0.5em; align-items: center;">
-                          ${this.renderConditionKeyInput(key, (newKey) => this._updateZoneGroupConditionKey(gidx, key, newKey))}
+                          <select
+                            .value="${key}"
+                            style="width: 120px;"
+                            @change=${(e: Event) => this._updateZoneGroupConditionKey(gidx, key, (e.target as HTMLSelectElement).value)}
+                          >
+                            <option value="">Select...</option>
+                            <option value="who">who</option>
+                            <option value="where">where</option>
+                            <option value="when">when</option>
+                            <option value="user">user</option>
+                            <option value="random">random</option>
+                            ${this.uniqueNamedSensors.map(sensorName => html`
+                              <option value="${sensorName}">${sensorName}</option>
+                            `)}
+                          </select>
                           ${this.renderConditionValueInput(key, value, (newValue) => this._updateZoneGroupConditionValue(gidx, key, newValue), validation)}
                           <button class="icon-button" @click=${() => this._removeZoneGroupCondition(gidx, key)} title="Remove">🗑️</button>
                         </div>
@@ -1523,7 +1482,21 @@ export class WhereaboutsCardEditor extends LitElement {
                               return html`
                               <div style="margin-bottom: 0.5em;">
                                 <div style="display: flex; gap: 0.5em; align-items: center;">
-                                  ${this.renderConditionKeyInput(key, (newKey) => this._updateZoneGroupActivityConditionKey(gidx, aidx, key, newKey), '100px')}
+                                  <select
+                                    .value="${key}"
+                                    style="width: 100px;"
+                                    @change=${(e: Event) => this._updateZoneGroupActivityConditionKey(gidx, aidx, key, (e.target as HTMLSelectElement).value)}
+                                  >
+                                    <option value="">Select...</option>
+                                    <option value="who">who</option>
+                                    <option value="where">where</option>
+                                    <option value="when">when</option>
+                                    <option value="user">user</option>
+                                    <option value="random">random</option>
+                                    ${this.uniqueNamedSensors.map(sensorName => html`
+                                      <option value="${sensorName}">${sensorName}</option>
+                                    `)}
+                                  </select>
                                   ${this.renderConditionValueInput(key, value, (newValue) => this._updateZoneGroupActivityConditionValue(gidx, aidx, key, newValue), validation)}
                                   <button class="icon-button" @click=${() => this._removeZoneGroupActivityCondition(gidx, aidx, key)} title="Remove">🗑️</button>
                                 </div>
@@ -2062,37 +2035,10 @@ export class WhereaboutsCardEditor extends LitElement {
   }
 
   _updateActivityConditionKey(activityIdx: number, oldKey: string, newKey: string) {
-    if (newKey === oldKey) return;
+    if (!newKey.trim() || newKey === oldKey) return;
 
     const activities = [...(this._config.activities ?? [])];
     const conditions = { ...(activities[activityIdx].conditions || {}) };
-
-    // Handle "__custom__" - switch to custom mode
-    if (newKey === '__custom__') {
-      // If switching from a named sensor, pre-populate with sensor name
-      const customKey = this.uniqueNamedSensors.includes(oldKey) ? `__custom__:${oldKey}` : '__custom__';
-      conditions[customKey] = conditions[oldKey] || '';
-      delete conditions[oldKey];
-      activities[activityIdx] = { ...activities[activityIdx], conditions };
-      this._config = { ...this._config, activities };
-      this.requestUpdate();
-      this._emitConfigChanged();
-      return;
-    }
-
-    // Handle empty key (switching back to dropdown from custom)
-    if (!newKey.trim()) {
-      if (oldKey === '__custom__' || oldKey.startsWith('__custom__:')) {
-        delete conditions[oldKey];
-      } else {
-        delete conditions[oldKey];
-      }
-      activities[activityIdx] = { ...activities[activityIdx], conditions };
-      this._config = { ...this._config, activities };
-      this.requestUpdate();
-      this._emitConfigChanged();
-      return;
-    }
 
     // Check if new key already exists
     if (conditions[newKey.trim()] && newKey.trim() !== oldKey) {
@@ -2182,37 +2128,10 @@ export class WhereaboutsCardEditor extends LitElement {
   }
 
   _updateZoneGroupConditionKey(gidx: number, oldKey: string, newKey: string) {
-    if (newKey === oldKey) return;
+    if (!newKey.trim() || newKey === oldKey) return;
 
     const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
     const conditions = { ...(groups[gidx].conditions || {}) };
-
-    // Handle "__custom__" - switch to custom mode
-    if (newKey === '__custom__') {
-      // If switching from a named sensor, pre-populate with sensor name
-      const customKey = this.uniqueNamedSensors.includes(oldKey) ? `__custom__:${oldKey}` : '__custom__';
-      conditions[customKey] = conditions[oldKey] || '';
-      delete conditions[oldKey];
-      groups[gidx] = { ...groups[gidx], conditions };
-      this._config = { ...this._config, zone_groups: groups };
-      this.requestUpdate();
-      this._emitConfigChanged();
-      return;
-    }
-
-    // Handle empty key (switching back to dropdown from custom)
-    if (!newKey.trim()) {
-      if (oldKey === '__custom__' || oldKey.startsWith('__custom__:')) {
-        delete conditions[oldKey];
-      } else {
-        delete conditions[oldKey];
-      }
-      groups[gidx] = { ...groups[gidx], conditions };
-      this._config = { ...this._config, zone_groups: groups };
-      this.requestUpdate();
-      this._emitConfigChanged();
-      return;
-    }
 
     if (conditions[newKey.trim()] && newKey.trim() !== oldKey) {
       alert('A condition with this key already exists');
@@ -2499,40 +2418,11 @@ export class WhereaboutsCardEditor extends LitElement {
   }
 
   _updateZoneGroupActivityConditionKey(gidx: number, aidx: number, oldKey: string, newKey: string) {
-    if (newKey === oldKey) return;
+    if (!newKey.trim() || newKey === oldKey) return;
 
     const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
     const activities = [...(groups[gidx].activities ?? [])];
     const conditions = { ...(activities[aidx].conditions || {}) };
-
-    // Handle "__custom__" - switch to custom mode
-    if (newKey === '__custom__') {
-      // If switching from a named sensor, pre-populate with sensor name
-      const customKey = this.uniqueNamedSensors.includes(oldKey) ? `__custom__:${oldKey}` : '__custom__';
-      conditions[customKey] = conditions[oldKey] || '';
-      delete conditions[oldKey];
-      activities[aidx] = { ...activities[aidx], conditions };
-      groups[gidx] = { ...groups[gidx], activities };
-      this._config = { ...this._config, zone_groups: groups };
-      this.requestUpdate();
-      this._emitConfigChanged();
-      return;
-    }
-
-    // Handle empty key (switching back to dropdown from custom)
-    if (!newKey.trim()) {
-      if (oldKey === '__custom__' || oldKey.startsWith('__custom__:')) {
-        delete conditions[oldKey];
-      } else {
-        delete conditions[oldKey];
-      }
-      activities[aidx] = { ...activities[aidx], conditions };
-      groups[gidx] = { ...groups[gidx], activities };
-      this._config = { ...this._config, zone_groups: groups };
-      this.requestUpdate();
-      this._emitConfigChanged();
-      return;
-    }
 
     if (conditions[newKey.trim()] && newKey.trim() !== oldKey) {
       alert('A condition with this key already exists');
@@ -2658,37 +2548,10 @@ export class WhereaboutsCardEditor extends LitElement {
   }
 
   _updateHideIfConditionKey(personIdx: number, oldKey: string, newKey: string) {
-    if (newKey === oldKey) return;
+    if (!newKey.trim() || newKey === oldKey) return;
 
     const persons = [...this._config.persons];
     const hideIf = { ...(persons[personIdx].hideIf || {}) };
-
-    // Handle "__custom__" - switch to custom mode
-    if (newKey === '__custom__') {
-      // If switching from a named sensor, pre-populate with sensor name
-      const customKey = this.uniqueNamedSensors.includes(oldKey) ? `__custom__:${oldKey}` : '__custom__';
-      hideIf[customKey] = hideIf[oldKey] || '';
-      delete hideIf[oldKey];
-      persons[personIdx] = { ...persons[personIdx], hideIf };
-      this._config = { ...this._config, persons };
-      this.requestUpdate();
-      this._emitConfigChanged();
-      return;
-    }
-
-    // Handle empty key (switching back to dropdown from custom)
-    if (!newKey.trim()) {
-      if (oldKey === '__custom__' || oldKey.startsWith('__custom__:')) {
-        delete hideIf[oldKey];
-      } else {
-        delete hideIf[oldKey];
-      }
-      persons[personIdx] = { ...persons[personIdx], hideIf };
-      this._config = { ...this._config, persons };
-      this.requestUpdate();
-      this._emitConfigChanged();
-      return;
-    }
 
     // Check if new key already exists
     if (hideIf[newKey.trim()] && newKey.trim() !== oldKey) {
