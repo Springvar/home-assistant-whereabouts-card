@@ -8,12 +8,48 @@ export class WhereaboutsCardEditor extends LitElement {
   @state() private _config: WhereaboutsCardConfig = { persons: [], zone_groups: [] };
   @state() private _showUsedZones: { [groupIndex: number]: boolean } = {};
   @state() private _zoneFilter: { [groupIndex: number]: string } = {};
+  @state() private _addSensorMode: { [personIndex: number]: 'dropdown' | 'text' } = {};
 
   get availablePersons(): string[] {
     if (!this.hass) return [];
     return Object.keys(this.hass.states)
       .filter(eid => eid.startsWith('person.'))
       .filter(eid => !this._config.persons?.some(p => p.entity_id === eid));
+  }
+
+  getAvailableSensorNames(personIdx: number): string[] {
+    const currentPerson = this._config.persons[personIdx];
+    const currentSensors = new Set(Object.keys(currentPerson?.namedSensors || {}));
+    const allSensorNames = new Set<string>();
+
+    // Collect sensor names from all other persons
+    this._config.persons.forEach((person, idx) => {
+      if (idx !== personIdx && person.namedSensors) {
+        Object.keys(person.namedSensors).forEach(name => {
+          if (!currentSensors.has(name)) {
+            allSensorNames.add(name);
+          }
+        });
+      }
+    });
+
+    return Array.from(allSensorNames).sort();
+  }
+
+  getAvailableAttributes(entityId: string | string[]): Array<{ key: string, value: any }> {
+    if (!this.hass) return [];
+
+    // If array, use first entity
+    const firstEntityId = Array.isArray(entityId) ? entityId[0] : entityId;
+    if (!firstEntityId) return [];
+
+    const entity = this.hass.states[firstEntityId];
+    if (!entity || !entity.attributes) return [];
+
+    // Extract all attribute keys with their current values
+    return Object.entries(entity.attributes)
+      .map(([key, value]) => ({ key, value }))
+      .sort((a, b) => a.key.localeCompare(b.key));
   }
 
   get usedIcons(): string[] {
@@ -966,22 +1002,126 @@ export class WhereaboutsCardEditor extends LitElement {
                             list="entity-suggestions"
                             style="flex: 1;"
                             @blur=${(e: Event) => this._updateNamedSensorEntity(idx, name, (e.target as HTMLInputElement).value)}
+                            @input=${() => this.requestUpdate()}
                           />
+                          ${(() => {
+                            const availableAttrs = sensor.entity_id ? this.getAvailableAttributes(sensor.entity_id) : [];
+                            const currentAttr = sensor.attribute || '';
+                            const isArray = Array.isArray(sensor.entity_id);
+                            const firstEntityId = isArray ? sensor.entity_id[0] : sensor.entity_id;
+
+                            // Check if current attribute is in the list
+                            const isCustomAttr = currentAttr && !availableAttrs.some(a => a.key === currentAttr);
+
+                            const title = !sensor.entity_id
+                              ? 'Set entity_id first'
+                              : isArray
+                                ? `Attributes from: ${firstEntityId}`
+                                : 'Select attribute or use state';
+
+                            return html`
+                              <select
+                                style="width: 150px;"
+                                .value="${currentAttr}"
+                                ?disabled="${!sensor.entity_id}"
+                                title="${title}"
+                                @change=${(e: Event) => {
+                                  const value = (e.target as HTMLSelectElement).value;
+                                  this._updateNamedSensorAttribute(idx, name, value);
+                                }}
+                              >
+                                <option value="">(use state)</option>
+                                ${availableAttrs.map(attr => html`
+                                  <option value="${attr.key}">${attr.key}</option>
+                                `)}
+                                ${isCustomAttr ? html`
+                                  <option value="${currentAttr}" selected>${currentAttr} (custom)</option>
+                                ` : ''}
+                              </select>
+                            `;
+                          })()}
                           <button class="icon-button" @click=${() => this._removeNamedSensor(idx, name)} title="Remove">🗑️</button>
                         </div>
                         ${sensor.entity_id ? html`
                           <div style="margin-left: 160px; font-size: 0.85em; color: #666; margin-bottom: 0.5em;">
                             ${this.getSensorFriendlyName(sensor.entity_id)}: <strong>${this.getSensorState(sensor.entity_id)}</strong>
+                            ${sensor.attribute ? (() => {
+                              const isArray = Array.isArray(sensor.entity_id);
+                              const firstEntityId = isArray ? sensor.entity_id[0] : sensor.entity_id;
+                              const entity = this.hass?.states[firstEntityId];
+                              const attrValue = entity?.attributes?.[sensor.attribute];
+                              return html`
+                                <span style="color: #999;">
+                                  → ${sensor.attribute}${isArray ? ' (from first)' : ''}: <strong style="color: #666;">${attrValue !== undefined ? JSON.stringify(attrValue) : 'undefined'}</strong>
+                                </span>
+                              `;
+                            })() : ''}
                           </div>
                         ` : ''}
                       `)
                     : ''}
                 </div>
 
-                <button
-                  @click=${() => this._addNamedSensor(idx)}
-                  style="margin-top: 0.5em;"
-                >+ Add Sensor</button>
+                ${(() => {
+                  const availableSensorNames = this.getAvailableSensorNames(idx);
+                  const mode = this._addSensorMode[idx] || 'dropdown';
+
+                  // If no available sensors or in text mode, show text input
+                  if (availableSensorNames.length === 0 || mode === 'text') {
+                    return html`
+                      <div style="display: flex; gap: 0.5em; margin-top: 0.5em; align-items: center;">
+                        <input
+                          type="text"
+                          id="new-sensor-name-${idx}"
+                          placeholder="Enter sensor name..."
+                          style="flex: 1;"
+                          @keydown=${(e: KeyboardEvent) => {
+                            if (e.key === 'Enter') {
+                              this._addNamedSensorFromText(idx);
+                            }
+                          }}
+                        />
+                        <button @click=${() => this._addNamedSensorFromText(idx)}>Add</button>
+                        ${availableSensorNames.length > 0 ? html`
+                          <button @click=${() => {
+                            this._addSensorMode = { ...this._addSensorMode, [idx]: 'dropdown' };
+                            this.requestUpdate();
+                          }}>Cancel</button>
+                        ` : ''}
+                      </div>
+                    `;
+                  }
+
+                  // Show dropdown with available sensors
+                  return html`
+                    <div style="margin-top: 0.5em;">
+                      <select
+                        style="width: 100%;"
+                        @change=${(e: Event) => {
+                          const value = (e.target as HTMLSelectElement).value;
+                          if (value === '__new__') {
+                            this._addSensorMode = { ...this._addSensorMode, [idx]: 'text' };
+                            this.requestUpdate();
+                            // Focus the text input after render
+                            setTimeout(() => {
+                              const input = this.shadowRoot?.querySelector(`#new-sensor-name-${idx}`) as HTMLInputElement;
+                              input?.focus();
+                            }, 0);
+                          } else if (value) {
+                            this._addNamedSensorFromDropdown(idx, value);
+                            (e.target as HTMLSelectElement).value = ''; // Reset dropdown
+                          }
+                        }}
+                      >
+                        <option value="">+ Add Sensor...</option>
+                        ${availableSensorNames.map(name => html`
+                          <option value="${name}">${name}</option>
+                        `)}
+                        <option value="__new__">Add new...</option>
+                      </select>
+                    </div>
+                  `;
+                })()}
               </div>
 
               <!-- Hide If Conditions -->
@@ -2469,17 +2609,61 @@ export class WhereaboutsCardEditor extends LitElement {
     this._emitConfigChanged();
   }
 
-  _addNamedSensor(personIdx: number) {
+  _addNamedSensor(personIdx: number, sensorName: string) {
     const persons = [...this._config.persons];
     const namedSensors: PersonSensors = persons[personIdx].namedSensors || {};
 
-    // Find a unique name like "sensor1", "sensor2", etc.
-    let counter = 1;
-    while (namedSensors[`sensor${counter}`]) {
-      counter++;
+    // Check if sensor name already exists
+    if (namedSensors[sensorName]) {
+      alert('A sensor with this name already exists');
+      return;
     }
 
-    namedSensors[`sensor${counter}`] = { entity_id: '' };
+    namedSensors[sensorName] = { entity_id: '' };
+    persons[personIdx] = { ...persons[personIdx], namedSensors };
+    this._config = { ...this._config, persons };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _addNamedSensorFromText(personIdx: number) {
+    const input = this.shadowRoot?.querySelector(`#new-sensor-name-${personIdx}`) as HTMLInputElement;
+    const sensorName = input?.value.trim();
+
+    if (!sensorName) {
+      alert('Please enter a sensor name');
+      return;
+    }
+
+    this._addNamedSensor(personIdx, sensorName);
+    input.value = ''; // Clear input
+
+    // Reset mode if there are available sensors
+    const availableSensorNames = this.getAvailableSensorNames(personIdx);
+    if (availableSensorNames.length > 0) {
+      this._addSensorMode = { ...this._addSensorMode, [personIdx]: 'dropdown' };
+    }
+  }
+
+  _addNamedSensorFromDropdown(personIdx: number, sensorName: string) {
+    // Look up the sensor definition from another person
+    let sensorTemplate: { entity_id: string | string[], attribute?: string } | null = null;
+
+    for (const person of this._config.persons) {
+      if (person.namedSensors && person.namedSensors[sensorName]) {
+        sensorTemplate = person.namedSensors[sensorName];
+        break;
+      }
+    }
+
+    const persons = [...this._config.persons];
+    const namedSensors: PersonSensors = persons[personIdx].namedSensors || {};
+
+    // Use the template if found, otherwise create empty sensor
+    namedSensors[sensorName] = sensorTemplate
+      ? { ...sensorTemplate }
+      : { entity_id: '' };
+
     persons[personIdx] = { ...persons[personIdx], namedSensors };
     this._config = { ...this._config, persons };
     this.requestUpdate();
@@ -2518,7 +2702,34 @@ export class WhereaboutsCardEditor extends LitElement {
       ? value.split(',').map(id => id.trim()).filter(id => id)
       : value.trim();
 
+    // Preserve existing attribute if present
+    const existingAttribute = namedSensors[sensorName]?.attribute;
     namedSensors[sensorName] = { entity_id: entityIds };
+    if (existingAttribute) {
+      namedSensors[sensorName].attribute = existingAttribute;
+    }
+
+    persons[personIdx] = { ...persons[personIdx], namedSensors };
+    this._config = { ...this._config, persons };
+    this.requestUpdate();
+    this._emitConfigChanged();
+  }
+
+  _updateNamedSensorAttribute(personIdx: number, sensorName: string, value: string) {
+    const persons = [...this._config.persons];
+    const namedSensors: PersonSensors = persons[personIdx].namedSensors || {};
+
+    if (!namedSensors[sensorName]) return;
+
+    const trimmedValue = value.trim();
+    if (trimmedValue) {
+      namedSensors[sensorName] = { ...namedSensors[sensorName], attribute: trimmedValue };
+    } else {
+      // Remove attribute if empty
+      const { attribute, ...rest } = namedSensors[sensorName];
+      namedSensors[sensorName] = rest;
+    }
+
     persons[personIdx] = { ...persons[personIdx], namedSensors };
     this._config = { ...this._config, persons };
     this.requestUpdate();
@@ -2702,6 +2913,18 @@ export class WhereaboutsCardEditor extends LitElement {
     .sensor-row input[type="text"]:nth-child(2) {
       flex: 1 1 200px;
       min-width: 150px;
+    }
+    .sensor-row select {
+      width: 150px;
+      flex-shrink: 0;
+      padding: 0.4em;
+      font-size: 0.9em;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+    .sensor-row select:disabled {
+      background: #f5f5f5;
+      color: #999;
     }
     .sensor-row input[disabled] {
       background: #f5f5f5;

@@ -227,6 +227,11 @@ function matchCondition(
         return false; // Sensor not defined for this person
     }
 
+    // Use attribute from sensor definition if available (takes precedence over dot notation)
+    if (sensor.attribute !== undefined) {
+        attributePath = sensor.attribute;
+    }
+
     // Get the actual sensor state(s)
     const entityIds = Array.isArray(sensor.entity_id) ? sensor.entity_id : [sensor.entity_id];
 

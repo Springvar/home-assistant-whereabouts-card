@@ -4,6 +4,7 @@ export type ConditionOperator = 'eq' | 'ne' | 'gt' | 'lt' | 'gte' | 'lte' | 'con
 
 export interface PersonSensor {
     entity_id: string | string[]; // Single entity or array for OR logic
+    attribute?: string; // Optional attribute path (e.g., 'game' for discord.game)
 }
 
 export interface PersonSensors {
