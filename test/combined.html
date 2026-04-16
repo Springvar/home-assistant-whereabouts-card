@@ -198,6 +198,15 @@
                             radius: 75
                         }
                     },
+                    'zone.track': {
+                        state: 'zoning',
+                        attributes: {
+                            friendly_name: 'Track',
+                            latitude: 63.4160,
+                            longitude: 10.4110,
+                            radius: 50
+                        }
+                    },
                     'zone.home': {
                         state: 'zoning',
                         attributes: {
@@ -321,7 +330,7 @@
                     { name: 'home', zones: ['zone.home'], show_preposition: false, icon: 'mdi:home' },
                     { zones: ['zone.school'], preposition: 'at', icon: 'mdi:school' },
                     {
-                        zones: ['zone.office', 'zone.gym'],
+                        zones: ['zone.office', 'zone.gym', 'zone.track'],
                         preposition: 'at the',
                         activities: [
                             {
@@ -374,10 +383,18 @@
                     {
                         activity: 'is working out',
                         conditions: {
-                            where: 'gym',
+                            where: 'zone.gym, zone.track',
                             detected_activity: 'running'
                         },
                         icon: 'mdi:dumbbell'
+                    },
+                    {
+                        activity: 'is not home',
+                        conditions: {
+                            where: '!zone.home, zone.doghouse,',
+                            who: 'person.joey_doe'
+                        },
+                        icon: 'mdi:home-remove'
                     }
                 ],
                 template: '{name} {activity} {-preposition} {-location} <right {icon}>'

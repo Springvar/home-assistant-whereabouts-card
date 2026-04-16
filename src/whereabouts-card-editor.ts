@@ -296,15 +296,15 @@ export class WhereaboutsCardEditor extends LitElement {
     }
 
     if (key === 'where') {
-      // Get all zones
-      const zones = this.hass ? Object.keys(this.hass.states).filter(id => id.startsWith('zone.')) : [];
-
-      // Get zone group names
+      // Get zone group names first
       const zoneGroupNames = (this._config.zone_groups || [])
         .filter(g => g.name)
         .map(g => g.name as string);
 
-      return [...zones, ...zoneGroupNames];
+      // Get all zones after
+      const zones = this.hass ? Object.keys(this.hass.states).filter(id => id.startsWith('zone.')) : [];
+
+      return [...zoneGroupNames, ...zones];
     }
 
     // Check if it's a named sensor
@@ -340,6 +340,27 @@ export class WhereaboutsCardEditor extends LitElement {
     }
 
     return [];
+  }
+
+  getWhereDisplayName(value: string): string {
+    // Check if it's a zone group name
+    const zoneGroup = this._config.zone_groups?.find(g => g.name === value);
+    if (zoneGroup) {
+      return value; // Zone group names are already display names
+    }
+
+    // Check if it's a zone entity
+    if (value.startsWith('zone.')) {
+      const zoneEntity = this.hass?.states[value];
+      if (zoneEntity?.attributes?.friendly_name) {
+        return zoneEntity.attributes.friendly_name;
+      }
+      // Fallback: remove 'zone.' prefix and capitalize
+      return value.replace('zone.', '').replace(/_/g, ' ');
+    }
+
+    // Fallback: return as-is
+    return value;
   }
 
   validateConditionValue(key: string, value: string | string[]): { valid: boolean; error?: string } {
@@ -467,6 +488,10 @@ export class WhereaboutsCardEditor extends LitElement {
     const valueStr = value.trim();
 
     if (inputType === 'number') {
+      // Check if value starts with ! and contains comma (notOneOf)
+      if (valueStr.startsWith('!') && valueStr.includes(',')) {
+        return { operator: 'notOneOf', value: valueStr.substring(1) };
+      }
       // Check if value contains comma (indicates oneOf / multiple values)
       if (valueStr.includes(',')) {
         return { operator: 'oneOf', value: valueStr };
@@ -479,7 +504,12 @@ export class WhereaboutsCardEditor extends LitElement {
       return { operator: '=', value: valueStr };
     }
 
-    // For select and text: check for ! prefix
+    // For select and text: check for ! prefix with comma (notOneOf)
+    if (valueStr.startsWith('!') && valueStr.includes(',')) {
+      return { operator: 'notOneOf', value: valueStr.substring(1) };
+    }
+
+    // Check for ! prefix alone (single value negation)
     if (valueStr.startsWith('!')) {
       return { operator: '!', value: valueStr.substring(1) };
     }
@@ -513,26 +543,40 @@ export class WhereaboutsCardEditor extends LitElement {
               newValue = `!${parsed.value}`;
             } else if (operator === 'oneOf') {
               // Ensure value is recognized as oneOf by adding comma if single value
-              if (parsed.value && !parsed.value.includes(',')) {
-                newValue = `${parsed.value},`;
-              } else if (!parsed.value) {
+              // Strip ! prefix if coming from != operator
+              const cleanValue = parsed.value.replace(/^!/, '');
+              if (cleanValue && !cleanValue.includes(',')) {
+                newValue = `${cleanValue},`;
+              } else if (!cleanValue) {
                 // Empty value - use special marker that will be filtered out
                 newValue = ',';
               } else {
-                newValue = parsed.value;
+                newValue = cleanValue;
+              }
+            } else if (operator === 'notOneOf') {
+              // Ensure value is recognized as notOneOf: add ! prefix and trailing comma
+              const cleanValue = parsed.value.replace(/^!/, '');
+              if (cleanValue && !cleanValue.includes(',')) {
+                newValue = `!${cleanValue},`;
+              } else if (!cleanValue) {
+                newValue = '!,';
+              } else {
+                newValue = `!${cleanValue}`;
               }
             } else {
-              // operator === '=' (equals) - strip any trailing commas
-              newValue = parsed.value.replace(/,\s*$/, '');
+              // operator === '=' (equals) - take only first value if multiple
+              const values = parsed.value.split(',').map(v => v.trim()).filter(v => v);
+              newValue = values[0] || '';
             }
             onChangeCallback(newValue);
           }}
         >
-          <option value="=">=</option>
-          <option value="!">≠ (not)</option>
-          <option value="oneOf">oneOf</option>
+          <option value="=" ?selected="${parsed.operator === '='}">=</option>
+          <option value="!" ?selected="${parsed.operator === '!'}">≠ (not)</option>
+          <option value="oneOf" ?selected="${parsed.operator === 'oneOf'}">oneOf</option>
+          <option value="notOneOf" ?selected="${parsed.operator === 'notOneOf'}">not oneOf</option>
         </select>
-        ${parsed.operator === 'oneOf'
+        ${parsed.operator === 'oneOf' || parsed.operator === 'notOneOf'
           ? (() => {
               // Parse current values
               const selectedValues = parsed.value
@@ -552,6 +596,8 @@ export class WhereaboutsCardEditor extends LitElement {
                         <option value="${option}">
                           ${key === 'who'
                             ? (this._config.persons?.find(p => p.entity_id === option)?.name || this.hass?.states[option]?.attributes?.friendly_name || option)
+                            : key === 'where'
+                            ? this.getWhereDisplayName(option)
                             : option}
                         </option>
                       `)}
@@ -563,7 +609,8 @@ export class WhereaboutsCardEditor extends LitElement {
                         const valueToAdd = dropdown?.value;
                         if (valueToAdd && !selectedValues.includes(valueToAdd)) {
                           const newValues = [...selectedValues, valueToAdd];
-                          onChangeCallback(newValues.join(', '));
+                          const formatted = newValues.join(', ') + ',';
+                          onChangeCallback(parsed.operator === 'notOneOf' ? `!${formatted}` : formatted);
                         }
                         if (dropdown) dropdown.value = '';
                       }}
@@ -585,12 +632,15 @@ export class WhereaboutsCardEditor extends LitElement {
                         ">
                           ${key === 'who'
                             ? (this._config.persons?.find(p => p.entity_id === val)?.name || this.hass?.states[val]?.attributes?.friendly_name || val)
+                            : key === 'where'
+                            ? this.getWhereDisplayName(val)
                             : val}
                           <button
                             type="button"
                             @click=${() => {
                               const newValues = selectedValues.filter(v => v !== val);
-                              onChangeCallback(newValues.join(', '));
+                              const formatted = newValues.length > 0 ? newValues.join(', ') + ',' : ',';
+                              onChangeCallback(parsed.operator === 'notOneOf' ? `!${formatted}` : formatted);
                             }}
                             style="
                               border: none;
@@ -625,6 +675,8 @@ export class WhereaboutsCardEditor extends LitElement {
                   <option value="${option}" ?selected="${parsed.value === option}">
                     ${key === 'who'
                       ? (this._config.persons?.find(p => p.entity_id === option)?.name || this.hass?.states[option]?.attributes?.friendly_name || option)
+                      : key === 'where'
+                      ? this.getWhereDisplayName(option)
                       : option}
                   </option>
                 `)}
@@ -643,6 +695,7 @@ export class WhereaboutsCardEditor extends LitElement {
             let newValue = parsed.value;
             if (operator === 'oneOf') {
               // Ensure value is recognized as oneOf by adding comma if single value
+              // parsed.value already has operator stripped by parseConditionOperator
               if (parsed.value && !parsed.value.includes(',')) {
                 newValue = `${parsed.value},`;
               } else if (!parsed.value) {
@@ -650,26 +703,38 @@ export class WhereaboutsCardEditor extends LitElement {
               } else {
                 newValue = parsed.value;
               }
+            } else if (operator === 'notOneOf') {
+              // Ensure value is recognized as notOneOf: add ! prefix and trailing comma
+              const cleanValue = parsed.value.replace(/^!/, '');
+              if (cleanValue && !cleanValue.includes(',')) {
+                newValue = `!${cleanValue},`;
+              } else if (!cleanValue) {
+                newValue = '!,';
+              } else {
+                newValue = `!${cleanValue}`;
+              }
             } else if (operator === '=') {
-              // Strip any trailing commas when switching away from oneOf
-              newValue = parsed.value.replace(/,\s*$/, '');
+              // Take only first value when switching away from oneOf
+              const values = parsed.value.split(',').map(v => v.trim()).filter(v => v);
+              newValue = values[0] || '';
             } else {
-              // Other operators (>, <, >=, <=, !=) - strip commas and add operator prefix
-              const cleanValue = parsed.value.replace(/,\s*$/, '');
-              newValue = `${operator}${cleanValue}`;
+              // Other operators (>, <, >=, <=, !=) - take first value and add operator prefix
+              const values = parsed.value.split(',').map(v => v.trim()).filter(v => v);
+              newValue = `${operator}${values[0] || ''}`;
             }
             onChangeCallback(newValue);
           }}
         >
-          <option value="=">=</option>
-          <option value="!=">≠</option>
-          <option value=">">></option>
-          <option value="<"><</option>
-          <option value=">=">≥</option>
-          <option value="<=">≤</option>
-          <option value="oneOf">oneOf</option>
+          <option value="=" ?selected="${parsed.operator === '='}">=</option>
+          <option value="!=" ?selected="${parsed.operator === '!='}">≠</option>
+          <option value=">" ?selected="${parsed.operator === '>'}">></option>
+          <option value="<" ?selected="${parsed.operator === '<'}"><</option>
+          <option value=">=" ?selected="${parsed.operator === '>='}">≥</option>
+          <option value="<=" ?selected="${parsed.operator === '<='}">≤</option>
+          <option value="oneOf" ?selected="${parsed.operator === 'oneOf'}">oneOf</option>
+          <option value="notOneOf" ?selected="${parsed.operator === 'notOneOf'}">not oneOf</option>
         </select>
-        ${parsed.operator === 'oneOf'
+        ${parsed.operator === 'oneOf' || parsed.operator === 'notOneOf'
           ? (() => {
               // Parse current values
               const selectedValues = parsed.value
@@ -695,7 +760,8 @@ export class WhereaboutsCardEditor extends LitElement {
                           const valueToAdd = input.value.trim();
                           if (valueToAdd && !selectedValues.includes(valueToAdd)) {
                             const newValues = [...selectedValues, valueToAdd];
-                            onChangeCallback(newValues.join(', '));
+                            const formatted = newValues.join(', ') + ',';
+                            onChangeCallback(parsed.operator === 'notOneOf' ? `!${formatted}` : formatted);
                             input.value = '';
                           }
                         }
@@ -708,7 +774,8 @@ export class WhereaboutsCardEditor extends LitElement {
                         const valueToAdd = input?.value.trim();
                         if (valueToAdd && !selectedValues.includes(valueToAdd)) {
                           const newValues = [...selectedValues, valueToAdd];
-                          onChangeCallback(newValues.join(', '));
+                          const formatted = newValues.join(', ') + ',';
+                          onChangeCallback(parsed.operator === 'notOneOf' ? `!${formatted}` : formatted);
                           input.value = '';
                         }
                       }}
@@ -733,7 +800,8 @@ export class WhereaboutsCardEditor extends LitElement {
                             type="button"
                             @click=${() => {
                               const newValues = selectedValues.filter(v => v !== val);
-                              onChangeCallback(newValues.join(', '));
+                              const formatted = newValues.length > 0 ? newValues.join(', ') + ',' : ',';
+                              onChangeCallback(parsed.operator === 'notOneOf' ? `!${formatted}` : formatted);
                             }}
                             style="
                               border: none;
@@ -781,7 +849,10 @@ export class WhereaboutsCardEditor extends LitElement {
           const operator = (e.target as HTMLSelectElement).value;
           let newValue = parsed.value;
           if (operator === '!') {
-            newValue = `!${parsed.value.replace(/^!/, '')}`;
+            // Take first value when switching from oneOf, add ! prefix
+            const cleanValue = parsed.value.replace(/^!/, '');
+            const values = cleanValue.split(',').map(v => v.trim()).filter(v => v);
+            newValue = `!${values[0] || ''}`;
           } else if (operator === 'oneOf') {
             // Ensure value is recognized as oneOf by adding comma if single value
             const cleanValue = parsed.value.replace(/^!/, '');
@@ -792,18 +863,31 @@ export class WhereaboutsCardEditor extends LitElement {
             } else {
               newValue = cleanValue;
             }
+          } else if (operator === 'notOneOf') {
+            // Ensure value is recognized as notOneOf: add ! prefix and trailing comma
+            const cleanValue = parsed.value.replace(/^!/, '');
+            if (cleanValue && !cleanValue.includes(',')) {
+              newValue = `!${cleanValue},`;
+            } else if (!cleanValue) {
+              newValue = '!,';
+            } else {
+              newValue = `!${cleanValue}`;
+            }
           } else {
-            // operator === '=' (equals) - strip any prefix operators
-            newValue = parsed.value.replace(/^!/, '').replace(/,\s*$/, '');
+            // operator === '=' (equals) - take first value when switching from oneOf
+            const cleanValue = parsed.value.replace(/^!/, '');
+            const values = cleanValue.split(',').map(v => v.trim()).filter(v => v);
+            newValue = values[0] || '';
           }
           onChangeCallback(newValue);
         }}
       >
-        <option value="=">=</option>
-        <option value="!">≠ (not)</option>
-        <option value="oneOf">oneOf</option>
+        <option value="=" ?selected="${parsed.operator === '='}">=</option>
+        <option value="!" ?selected="${parsed.operator === '!'}">≠ (not)</option>
+        <option value="oneOf" ?selected="${parsed.operator === 'oneOf'}">oneOf</option>
+        <option value="notOneOf" ?selected="${parsed.operator === 'notOneOf'}">not oneOf</option>
       </select>
-      ${parsed.operator === 'oneOf'
+      ${parsed.operator === 'oneOf' || parsed.operator === 'notOneOf'
         ? (() => {
             // Parse current values
             const selectedValues = parsed.value
@@ -826,7 +910,8 @@ export class WhereaboutsCardEditor extends LitElement {
                         const valueToAdd = input.value.trim();
                         if (valueToAdd && !selectedValues.includes(valueToAdd)) {
                           const newValues = [...selectedValues, valueToAdd];
-                          onChangeCallback(newValues.join(', '));
+                          const formatted = newValues.join(', ') + ',';
+                          onChangeCallback(parsed.operator === 'notOneOf' ? `!${formatted}` : formatted);
                           input.value = '';
                         }
                       }
@@ -839,7 +924,8 @@ export class WhereaboutsCardEditor extends LitElement {
                       const valueToAdd = input?.value.trim();
                       if (valueToAdd && !selectedValues.includes(valueToAdd)) {
                         const newValues = [...selectedValues, valueToAdd];
-                        onChangeCallback(newValues.join(', '));
+                        const formatted = newValues.join(', ') + ',';
+                        onChangeCallback(parsed.operator === 'notOneOf' ? `!${formatted}` : formatted);
                         input.value = '';
                       }
                     }}
@@ -864,7 +950,8 @@ export class WhereaboutsCardEditor extends LitElement {
                           type="button"
                           @click=${() => {
                             const newValues = selectedValues.filter(v => v !== val);
-                            onChangeCallback(newValues.join(', '));
+                            const formatted = newValues.length > 0 ? newValues.join(', ') + ',' : ',';
+                            onChangeCallback(parsed.operator === 'notOneOf' ? `!${formatted}` : formatted);
                           }}
                           style="
                             border: none;
@@ -2442,10 +2529,11 @@ export class WhereaboutsCardEditor extends LitElement {
     const activities = [...(this._config.activities ?? [])];
     const conditions = { ...(activities[activityIdx].conditions || {}) };
 
-    // Parse value - check if comma-separated
-    const value = valueStr.includes(',')
-      ? valueStr.split(',').map(v => v.trim()).filter(v => v)
-      : valueStr.trim();
+    // Store value as-is to preserve trailing commas for oneOf format
+    // Only parse into array if there are multiple actual values (not just trailing comma)
+    const trimmed = valueStr.trim();
+    const parts = trimmed.split(',').map(v => v.trim()).filter(v => v);
+    const value = parts.length > 1 ? parts : trimmed;
 
     conditions[key] = value;
     activities[activityIdx] = { ...activities[activityIdx], conditions };
@@ -2533,9 +2621,10 @@ export class WhereaboutsCardEditor extends LitElement {
     const groups: ZoneGroup[] = [...(this._config.zone_groups ?? [])];
     const conditions = { ...(groups[gidx].conditions || {}) };
 
-    const value = valueStr.includes(',')
-      ? valueStr.split(',').map(v => v.trim()).filter(v => v)
-      : valueStr.trim();
+    // Store value as-is to preserve trailing commas for oneOf format
+    const trimmed = valueStr.trim();
+    const parts = trimmed.split(',').map(v => v.trim()).filter(v => v);
+    const value = parts.length > 1 ? parts : trimmed;
 
     conditions[key] = value;
     groups[gidx] = { ...groups[gidx], conditions };
@@ -2826,9 +2915,10 @@ export class WhereaboutsCardEditor extends LitElement {
     const activities = [...(groups[gidx].activities ?? [])];
     const conditions = { ...(activities[aidx].conditions || {}) };
 
-    const value = valueStr.includes(',')
-      ? valueStr.split(',').map(v => v.trim()).filter(v => v)
-      : valueStr.trim();
+    // Store value as-is to preserve trailing commas for oneOf format
+    const trimmed = valueStr.trim();
+    const parts = trimmed.split(',').map(v => v.trim()).filter(v => v);
+    const value = parts.length > 1 ? parts : trimmed;
 
     conditions[key] = value;
     activities[aidx] = { ...activities[aidx], conditions };
@@ -3026,10 +3116,10 @@ export class WhereaboutsCardEditor extends LitElement {
     const persons = [...this._config.persons];
     const hideIf = { ...(persons[personIdx].hideIf || {}) };
 
-    // Parse value - check if comma-separated
-    const value = valueStr.includes(',')
-      ? valueStr.split(',').map(v => v.trim()).filter(v => v)
-      : valueStr.trim();
+    // Store value as-is to preserve trailing commas for oneOf format
+    const trimmed = valueStr.trim();
+    const parts = trimmed.split(',').map(v => v.trim()).filter(v => v);
+    const value = parts.length > 1 ? parts : trimmed;
 
     hideIf[key] = value;
     persons[personIdx] = { ...persons[personIdx], hideIf };

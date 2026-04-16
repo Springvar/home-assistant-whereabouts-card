@@ -267,6 +267,14 @@ function matchesValue(actualValue: string, expectedValue: string | string[]): bo
         return expectedValue.some(val => matchesValue(actualValue, val));
     }
 
+    // Check for ! prefix with comma (notOneOf pattern)
+    if (expectedValue.startsWith('!') && expectedValue.includes(',')) {
+        const checkValue = expectedValue.substring(1).trim();
+        const values = checkValue.split(',').map(v => v.trim()).filter(v => v);
+        // Return true if actualValue is NOT in the list
+        return !values.some(v => actualValue === v);
+    }
+
     // Check for ! prefix (boolean false check)
     if (expectedValue.startsWith('!')) {
         const checkValue = expectedValue.substring(1).trim();
