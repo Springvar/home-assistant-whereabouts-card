@@ -526,18 +526,83 @@ export class WhereaboutsCardEditor extends LitElement {
           <option value="oneOf">oneOf</option>
         </select>
         ${parsed.operator === 'oneOf'
-          ? html`
-              <input
-                type="text"
-                .value="${parsed.value}"
-                placeholder="value1, value2, value3"
-                style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
-                @blur=${(e: Event) => {
-                  const textValue = (e.target as HTMLInputElement).value;
-                  onChangeCallback(textValue);
-                }}
-              />
-            `
+          ? (() => {
+              // Parse current values
+              const selectedValues = parsed.value
+                .split(',')
+                .map(v => v.trim())
+                .filter(v => v);
+
+              return html`
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 0.5em;">
+                  <div style="display: flex; gap: 0.5em;">
+                    <select
+                      id="oneOf-dropdown-${key}"
+                      style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+                    >
+                      <option value="">Select to add...</option>
+                      ${options.filter(opt => !selectedValues.includes(opt)).map(option => html`
+                        <option value="${option}">
+                          ${key === 'who'
+                            ? (this._config.persons?.find(p => p.entity_id === option)?.name || this.hass?.states[option]?.attributes?.friendly_name || option)
+                            : option}
+                        </option>
+                      `)}
+                    </select>
+                    <button
+                      type="button"
+                      @click=${(e: Event) => {
+                        const dropdown = (e.target as HTMLElement).parentElement?.querySelector('select') as HTMLSelectElement;
+                        const valueToAdd = dropdown?.value;
+                        if (valueToAdd && !selectedValues.includes(valueToAdd)) {
+                          const newValues = [...selectedValues, valueToAdd];
+                          onChangeCallback(newValues.join(', '));
+                        }
+                        if (dropdown) dropdown.value = '';
+                      }}
+                      style="padding: 0.4em 0.8em; white-space: nowrap;"
+                    >+ Add</button>
+                  </div>
+                  ${selectedValues.length > 0 ? html`
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.25em;">
+                      ${selectedValues.map(val => html`
+                        <span style="
+                          display: inline-flex;
+                          align-items: center;
+                          gap: 0.25em;
+                          padding: 0.2em 0.5em;
+                          background: #e3f2fd;
+                          border: 1px solid #90caf9;
+                          border-radius: 3px;
+                          font-size: 0.85em;
+                        ">
+                          ${key === 'who'
+                            ? (this._config.persons?.find(p => p.entity_id === val)?.name || this.hass?.states[val]?.attributes?.friendly_name || val)
+                            : val}
+                          <button
+                            type="button"
+                            @click=${() => {
+                              const newValues = selectedValues.filter(v => v !== val);
+                              onChangeCallback(newValues.join(', '));
+                            }}
+                            style="
+                              border: none;
+                              background: none;
+                              padding: 0;
+                              cursor: pointer;
+                              font-size: 1.2em;
+                              line-height: 1;
+                              color: #666;
+                            "
+                            title="Remove"
+                          >×</button>
+                        </span>
+                      `)}
+                    </div>
+                  ` : ''}
+                </div>
+              `;
+            })()
           : html`
               <select
                 .value="${parsed.value}"
@@ -589,18 +654,89 @@ export class WhereaboutsCardEditor extends LitElement {
           <option value="oneOf">oneOf</option>
         </select>
         ${parsed.operator === 'oneOf'
-          ? html`
-              <input
-                type="text"
-                .value="${parsed.value}"
-                placeholder="10, 20, 30"
-                style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
-                @blur=${(e: Event) => {
-                  const textValue = (e.target as HTMLInputElement).value;
-                  onChangeCallback(textValue);
-                }}
-              />
-            `
+          ? (() => {
+              // Parse current values
+              const selectedValues = parsed.value
+                .split(',')
+                .map(v => v.trim())
+                .filter(v => v);
+
+              return html`
+                <div style="flex: 1; display: flex; flex-direction: column; gap: 0.5em;">
+                  <div style="display: flex; gap: 0.5em;">
+                    <input
+                      id="oneOf-number-input-${key}"
+                      type="number"
+                      placeholder="${key === 'random' ? '0-100' : 'Enter value'}"
+                      min="${key === 'random' ? '0' : ''}"
+                      max="${key === 'random' ? '100' : ''}"
+                      step="${key === 'random' ? '1' : 'any'}"
+                      style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+                      @keydown=${(e: KeyboardEvent) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const input = e.target as HTMLInputElement;
+                          const valueToAdd = input.value.trim();
+                          if (valueToAdd && !selectedValues.includes(valueToAdd)) {
+                            const newValues = [...selectedValues, valueToAdd];
+                            onChangeCallback(newValues.join(', '));
+                            input.value = '';
+                          }
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      @click=${(e: Event) => {
+                        const input = (e.target as HTMLElement).parentElement?.querySelector('input') as HTMLInputElement;
+                        const valueToAdd = input?.value.trim();
+                        if (valueToAdd && !selectedValues.includes(valueToAdd)) {
+                          const newValues = [...selectedValues, valueToAdd];
+                          onChangeCallback(newValues.join(', '));
+                          input.value = '';
+                        }
+                      }}
+                      style="padding: 0.4em 0.8em; white-space: nowrap;"
+                    >+ Add</button>
+                  </div>
+                  ${selectedValues.length > 0 ? html`
+                    <div style="display: flex; flex-wrap: wrap; gap: 0.25em;">
+                      ${selectedValues.map(val => html`
+                        <span style="
+                          display: inline-flex;
+                          align-items: center;
+                          gap: 0.25em;
+                          padding: 0.2em 0.5em;
+                          background: #e3f2fd;
+                          border: 1px solid #90caf9;
+                          border-radius: 3px;
+                          font-size: 0.85em;
+                        ">
+                          ${val}
+                          <button
+                            type="button"
+                            @click=${() => {
+                              const newValues = selectedValues.filter(v => v !== val);
+                              onChangeCallback(newValues.join(', '));
+                            }}
+                            style="
+                              border: none;
+                              background: none;
+                              padding: 0;
+                              cursor: pointer;
+                              font-size: 1.2em;
+                              line-height: 1;
+                              color: #666;
+                            "
+                            title="Remove"
+                          >×</button>
+                        </span>
+                      `)}
+                    </div>
+                  ` : ''}
+                </div>
+              `;
+            })()
           : html`
               <input
                 type="number"
@@ -644,23 +780,105 @@ export class WhereaboutsCardEditor extends LitElement {
         <option value="!">≠ (not)</option>
         <option value="oneOf">oneOf</option>
       </select>
-      <input
-        type="text"
-        .value="${parsed.value}"
-        placeholder="${parsed.operator === 'oneOf' ? 'value1, value2, value3' : 'value'}"
-        style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
-        @blur=${(e: Event) => {
-          const textValue = (e.target as HTMLInputElement).value;
-          let newValue = textValue;
-          if (parsed.operator === '!') {
-            newValue = `!${textValue}`;
-          } else if (parsed.operator === 'oneOf') {
-            // Keep comma-separated value as-is
-            newValue = textValue;
-          }
-          onChangeCallback(newValue);
-        }}
-      />
+      ${parsed.operator === 'oneOf'
+        ? (() => {
+            // Parse current values
+            const selectedValues = parsed.value
+              .split(',')
+              .map(v => v.trim())
+              .filter(v => v);
+
+            return html`
+              <div style="flex: 1; display: flex; flex-direction: column; gap: 0.5em;">
+                <div style="display: flex; gap: 0.5em;">
+                  <input
+                    id="oneOf-text-input-${key}"
+                    type="text"
+                    placeholder="Enter value"
+                    style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+                    @keydown=${(e: KeyboardEvent) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const input = e.target as HTMLInputElement;
+                        const valueToAdd = input.value.trim();
+                        if (valueToAdd && !selectedValues.includes(valueToAdd)) {
+                          const newValues = [...selectedValues, valueToAdd];
+                          onChangeCallback(newValues.join(', '));
+                          input.value = '';
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    @click=${(e: Event) => {
+                      const input = (e.target as HTMLElement).parentElement?.querySelector('input') as HTMLInputElement;
+                      const valueToAdd = input?.value.trim();
+                      if (valueToAdd && !selectedValues.includes(valueToAdd)) {
+                        const newValues = [...selectedValues, valueToAdd];
+                        onChangeCallback(newValues.join(', '));
+                        input.value = '';
+                      }
+                    }}
+                    style="padding: 0.4em 0.8em; white-space: nowrap;"
+                  >+ Add</button>
+                </div>
+                ${selectedValues.length > 0 ? html`
+                  <div style="display: flex; flex-wrap: wrap; gap: 0.25em;">
+                    ${selectedValues.map(val => html`
+                      <span style="
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 0.25em;
+                        padding: 0.2em 0.5em;
+                        background: #e3f2fd;
+                        border: 1px solid #90caf9;
+                        border-radius: 3px;
+                        font-size: 0.85em;
+                      ">
+                        ${val}
+                        <button
+                          type="button"
+                          @click=${() => {
+                            const newValues = selectedValues.filter(v => v !== val);
+                            onChangeCallback(newValues.join(', '));
+                          }}
+                          style="
+                            border: none;
+                            background: none;
+                            padding: 0;
+                            cursor: pointer;
+                            font-size: 1.2em;
+                            line-height: 1;
+                            color: #666;
+                          "
+                          title="Remove"
+                        >×</button>
+                      </span>
+                    `)}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          })()
+        : html`
+            <input
+              type="text"
+              .value="${parsed.value}"
+              placeholder="value"
+              style="flex: 1; ${!validation.valid ? 'border-color: #ff9800;' : ''}"
+              @blur=${(e: Event) => {
+                const textValue = (e.target as HTMLInputElement).value;
+                let newValue = textValue;
+                if (parsed.operator === '!') {
+                  newValue = `!${textValue}`;
+                } else {
+                  newValue = textValue;
+                }
+                onChangeCallback(newValue);
+              }}
+            />
+          `}
     `;
   }
 
