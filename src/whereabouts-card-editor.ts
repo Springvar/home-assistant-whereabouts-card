@@ -550,7 +550,7 @@ export class WhereaboutsCardEditor extends LitElement {
               >
                 <option value="">Select...</option>
                 ${options.map(option => html`
-                  <option value="${option}">
+                  <option value="${option}" ?selected="${parsed.value === option}">
                     ${key === 'who'
                       ? (this._config.persons?.find(p => p.entity_id === option)?.name || this.hass?.states[option]?.attributes?.friendly_name || option)
                       : option}
@@ -1143,13 +1143,13 @@ export class WhereaboutsCardEditor extends LitElement {
                             @change=${(e: Event) => this._updateHideIfConditionKey(idx, key, (e.target as HTMLSelectElement).value)}
                           >
                             <option value="">Select...</option>
-                            <option value="who">who</option>
-                            <option value="where">where</option>
-                            <option value="when">when</option>
-                            <option value="user">user</option>
-                            <option value="random">random</option>
+                            <option value="who" ?selected="${key === 'who'}">who</option>
+                            <option value="where" ?selected="${key === 'where'}">where</option>
+                            <option value="when" ?selected="${key === 'when'}">when</option>
+                            <option value="user" ?selected="${key === 'user'}">user</option>
+                            <option value="random" ?selected="${key === 'random'}">random</option>
                             ${this.uniqueNamedSensors.map(sensorName => html`
-                              <option value="${sensorName}">${sensorName}</option>
+                              <option value="${sensorName}" ?selected="${key === sensorName}">${sensorName}</option>
                             `)}
                           </select>
                           ${this.renderConditionValueInput(key, value, (newValue) => this._updateHideIfConditionValue(idx, key, newValue), validation)}
@@ -1293,13 +1293,13 @@ export class WhereaboutsCardEditor extends LitElement {
                             @change=${(e: Event) => this._updateActivityConditionKey(idx, key, (e.target as HTMLSelectElement).value)}
                           >
                             <option value="">Select...</option>
-                            <option value="who">who</option>
-                            <option value="where">where</option>
-                            <option value="when">when</option>
-                            <option value="user">user</option>
-                            <option value="random">random</option>
+                            <option value="who" ?selected="${key === 'who'}">who</option>
+                            <option value="where" ?selected="${key === 'where'}">where</option>
+                            <option value="when" ?selected="${key === 'when'}">when</option>
+                            <option value="user" ?selected="${key === 'user'}">user</option>
+                            <option value="random" ?selected="${key === 'random'}">random</option>
                             ${this.uniqueNamedSensors.map(sensorName => html`
-                              <option value="${sensorName}">${sensorName}</option>
+                              <option value="${sensorName}" ?selected="${key === sensorName}">${sensorName}</option>
                             `)}
                           </select>
                           ${this.renderConditionValueInput(key, value, (newValue) => this._updateActivityConditionValue(idx, key, newValue), validation)}
@@ -1492,13 +1492,13 @@ export class WhereaboutsCardEditor extends LitElement {
                             @change=${(e: Event) => this._updateZoneGroupConditionKey(gidx, key, (e.target as HTMLSelectElement).value)}
                           >
                             <option value="">Select...</option>
-                            <option value="who">who</option>
-                            <option value="where">where</option>
-                            <option value="when">when</option>
-                            <option value="user">user</option>
-                            <option value="random">random</option>
+                            <option value="who" ?selected="${key === 'who'}">who</option>
+                            <option value="where" ?selected="${key === 'where'}">where</option>
+                            <option value="when" ?selected="${key === 'when'}">when</option>
+                            <option value="user" ?selected="${key === 'user'}">user</option>
+                            <option value="random" ?selected="${key === 'random'}">random</option>
                             ${this.uniqueNamedSensors.map(sensorName => html`
-                              <option value="${sensorName}">${sensorName}</option>
+                              <option value="${sensorName}" ?selected="${key === sensorName}">${sensorName}</option>
                             `)}
                           </select>
                           ${this.renderConditionValueInput(key, value, (newValue) => this._updateZoneGroupConditionValue(gidx, key, newValue), validation)}
@@ -1628,13 +1628,13 @@ export class WhereaboutsCardEditor extends LitElement {
                                     @change=${(e: Event) => this._updateZoneGroupActivityConditionKey(gidx, aidx, key, (e.target as HTMLSelectElement).value)}
                                   >
                                     <option value="">Select...</option>
-                                    <option value="who">who</option>
-                                    <option value="where">where</option>
-                                    <option value="when">when</option>
-                                    <option value="user">user</option>
-                                    <option value="random">random</option>
+                                    <option value="who" ?selected="${key === 'who'}">who</option>
+                                    <option value="where" ?selected="${key === 'where'}">where</option>
+                                    <option value="when" ?selected="${key === 'when'}">when</option>
+                                    <option value="user" ?selected="${key === 'user'}">user</option>
+                                    <option value="random" ?selected="${key === 'random'}">random</option>
                                     ${this.uniqueNamedSensors.map(sensorName => html`
-                                      <option value="${sensorName}">${sensorName}</option>
+                                      <option value="${sensorName}" ?selected="${key === sensorName}">${sensorName}</option>
                                     `)}
                                   </select>
                                   ${this.renderConditionValueInput(key, value, (newValue) => this._updateZoneGroupActivityConditionValue(gidx, aidx, key, newValue), validation)}
