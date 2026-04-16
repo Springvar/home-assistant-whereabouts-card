@@ -512,11 +512,18 @@ export class WhereaboutsCardEditor extends LitElement {
             if (operator === '!') {
               newValue = `!${parsed.value}`;
             } else if (operator === 'oneOf') {
-              // Keep comma-separated value as-is
-              newValue = parsed.value;
+              // Ensure value is recognized as oneOf by adding comma if single value
+              if (parsed.value && !parsed.value.includes(',')) {
+                newValue = `${parsed.value},`;
+              } else if (!parsed.value) {
+                // Empty value - use special marker that will be filtered out
+                newValue = ',';
+              } else {
+                newValue = parsed.value;
+              }
             } else {
-              // operator === '=' (equals)
-              newValue = parsed.value;
+              // operator === '=' (equals) - strip any trailing commas
+              newValue = parsed.value.replace(/,\s*$/, '');
             }
             onChangeCallback(newValue);
           }}
@@ -635,12 +642,21 @@ export class WhereaboutsCardEditor extends LitElement {
             const operator = (e.target as HTMLSelectElement).value;
             let newValue = parsed.value;
             if (operator === 'oneOf') {
-              // Keep comma-separated value as-is
-              newValue = parsed.value;
+              // Ensure value is recognized as oneOf by adding comma if single value
+              if (parsed.value && !parsed.value.includes(',')) {
+                newValue = `${parsed.value},`;
+              } else if (!parsed.value) {
+                newValue = ',';
+              } else {
+                newValue = parsed.value;
+              }
             } else if (operator === '=') {
-              newValue = parsed.value;
+              // Strip any trailing commas when switching away from oneOf
+              newValue = parsed.value.replace(/,\s*$/, '');
             } else {
-              newValue = `${operator}${parsed.value}`;
+              // Other operators (>, <, >=, <=, !=) - strip commas and add operator prefix
+              const cleanValue = parsed.value.replace(/,\s*$/, '');
+              newValue = `${operator}${cleanValue}`;
             }
             onChangeCallback(newValue);
           }}
@@ -765,13 +781,20 @@ export class WhereaboutsCardEditor extends LitElement {
           const operator = (e.target as HTMLSelectElement).value;
           let newValue = parsed.value;
           if (operator === '!') {
-            newValue = `!${parsed.value}`;
+            newValue = `!${parsed.value.replace(/^!/, '')}`;
           } else if (operator === 'oneOf') {
-            // Keep comma-separated value as-is
-            newValue = parsed.value;
+            // Ensure value is recognized as oneOf by adding comma if single value
+            const cleanValue = parsed.value.replace(/^!/, '');
+            if (cleanValue && !cleanValue.includes(',')) {
+              newValue = `${cleanValue},`;
+            } else if (!cleanValue) {
+              newValue = ',';
+            } else {
+              newValue = cleanValue;
+            }
           } else {
-            // operator === '=' (equals)
-            newValue = parsed.value;
+            // operator === '=' (equals) - strip any prefix operators
+            newValue = parsed.value.replace(/^!/, '').replace(/,\s*$/, '');
           }
           onChangeCallback(newValue);
         }}
