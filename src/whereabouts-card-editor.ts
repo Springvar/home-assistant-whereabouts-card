@@ -80,7 +80,7 @@ export class WhereaboutsCardEditor extends LitElement {
     const tracked = new Set<string>();
 
     // Track all person entities
-    for (const person of this._config.persons) {
+    for (const person of this._config.persons || []) {
       tracked.add(person.entity_id);
 
       // Track all named sensors for this person
