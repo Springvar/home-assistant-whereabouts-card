@@ -410,24 +410,28 @@ export class ActivityEvaluator {
         const currentUser = this.hass.user;
         if (!currentUser) return false;
 
-        // Match against user ID, name, or person entity ID
         return expectedValues.some(expected => {
+            // Special case: "user" matches if the current person is the logged-in user
+            if (expected.toLowerCase() === 'user') {
+                const personEntity = this.hass.states[this.person.entity_id];
+                return personEntity?.attributes?.user_id === currentUser.id;
+            }
+
             // Match user ID
             if (expected === currentUser.id) return true;
 
             // Match user name
             if (expected === currentUser.name) return true;
 
-            // Match person entity_id associated with user
-            // Check if the person entity has a user_id attribute matching current user
-            const personEntity = this.hass.states[this.person.entity_id];
-            if (personEntity?.attributes?.user_id === currentUser.id) {
-                // Match against person entity_id or name
-                if (expected === this.person.entity_id ||
-                    expected === this.person.entity_id.replace('person.', '') ||
-                    expected === this.person.name) {
-                    return true;
-                }
+            // Check if expected value refers to a person entity (e.g., "person.silje")
+            // and that person is associated with the logged-in user
+            let checkEntityId = expected;
+            if (!expected.includes('.')) {
+                checkEntityId = `person.${expected}`;
+            }
+            const checkEntity = this.hass.states[checkEntityId];
+            if (checkEntity?.attributes?.user_id === currentUser.id) {
+                return true;
             }
 
             return false;

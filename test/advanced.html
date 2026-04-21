@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Whereabouts Card - Advanced Test</title>
+        <script type="module" src="/src/whereabouts-card.ts"></script>
+        <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+        <script>
+            class HaIcon extends HTMLElement {
+                static get observedAttributes() {
+                    return ['icon'];
+                }
+
+                connectedCallback() {
+                    this.style.display = 'inline-flex';
+                    this.style.alignItems = 'center';
+                    this.style.justifyContent = 'center';
+                    this.render();
+                }
+
+                attributeChangedCallback() {
+                    this.render();
+                }
+
+                async render() {
+                    const icon = this.getAttribute('icon');
+                    if (icon && icon.startsWith('mdi:')) {
+                        const iconName = icon.replace('mdi:', '');
+                        const computedStyle = window.getComputedStyle(this);
+                        const size = computedStyle.getPropertyValue('--mdc-icon-size').trim() || '24px';
+                        const color = computedStyle.color || 'currentColor';
+
+                        try {
+                            const response = await fetch(`https://api.iconify.design/mdi/${iconName}.svg?color=${encodeURIComponent(color)}&width=${size}&height=${size}`);
+                            if (response.ok) {
+                                const svg = await response.text();
+                                this.innerHTML = svg;
+                            } else {
+                                this.innerHTML = `<span style="font-size: ${size};">❓</span>`;
+                            }
+                        } catch (e) {
+                            this.innerHTML = `<span style="font-size: ${size};">❓</span>`;
+                        }
+                    }
+                }
+            }
+
+            if (!customElements.get('ha-icon')) {
+                customElements.define('ha-icon', HaIcon);
+            }
+        </script>
+        <style>
+            :root {
+                --primary-color: #03a9f4;
+                --accent-color: #ff9800;
+                --primary-background-color: #fafafa;
+                --secondary-background-color: #e0e0e0;
+                --ha-card-background: #fff;
+                --ha-card-box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.12);
+                --primary-text-color: #212121;
+                --secondary-text-color: #757575;
+                --info-color: #2196f3;
+                --success-color: #43a047;
+                --warning-color: #fb8c00;
+                --error-color: #c0392b;
+            }
+            body {
+                background: #fafafa;
+                font-family: sans-serif;
+                margin: 0;
+                padding: 1em;
+            }
+            h2 {
+                color: var(--primary-text-color);
+                margin-top: 0;
+                margin-bottom: 1em;
+            }
+            .controls {
+                background: white;
+                padding: 1em;
+                border-radius: 8px;
+                margin-bottom: 1em;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .controls h3 {
+                margin: 0 0 0.5em 0;
+                color: var(--primary-text-color);
+            }
+            .person-controls {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 1em;
+                align-items: center;
+            }
+            .person-control {
+                display: flex;
+                flex-direction: column;
+                gap: 0.25em;
+                padding: 0.5em;
+                background: #f5f5f5;
+                border-radius: 4px;
+            }
+            .person-control label {
+                font-size: 0.85em;
+                color: #666;
+                font-weight: bold;
+            }
+            .person-control select, .person-control input {
+                padding: 0.25em;
+                border: 1px solid #ccc;
+                border-radius: 3px;
+            }
+            .logged-in-selector {
+                display: flex;
+                align-items: center;
+                gap: 0.5em;
+                padding: 0.5em;
+                background: #e3f2fd;
+                border-radius: 4px;
+                border: 1px solid #90caf9;
+            }
+            .logged-in-selector label {
+                font-weight: bold;
+                color: #1565c0;
+            }
+            .container {
+                display: flex;
+                gap: 2em;
+                max-width: 1400px;
+                margin: 0 auto;
+                align-items: flex-start;
+            }
+            .editor-column {
+                flex: 1 1 460px;
+                min-width: 400px;
+                max-width: 460px;
+            }
+            .preview-column {
+                flex: 0 1 400px;
+                min-width: 300px;
+                position: sticky;
+                top: 1em;
+            }
+            whereabouts-card, whereabouts-card-editor {
+                display: block;
+            }
+            @media (max-width: 1000px) {
+                .container {
+                    flex-direction: column;
+                }
+                .preview-column {
+                    position: static;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="controls">
+            <h3>Test Controls</h3>
+            <div class="logged-in-selector">
+                <label>Logged in user:</label>
+                <select id="loggedInUser">
+                    <option value="">None (not logged in)</option>
+                </select>
+                <input type="text" id="customUserId" placeholder="Or enter user ID..." style="display:none;">
+                <button type="button" id="toggleCustomUser" style="margin-left: 0.5em;">Custom</button>
+            </div>
+            <div class="person-controls" id="personControls">
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="editor-column">
+                <h2>Editor</h2>
+                <whereabouts-card-editor id="whereaboutseditor"></whereabouts-card-editor>
+            </div>
+
+            <div class="preview-column">
+                <h2>Card Preview</h2>
+                <whereabouts-card id="whereaboutscard"></whereabouts-card>
+            </div>
+        </div>
+
+        <script>
+            const persons = [
+                { id: 'person.alice', name: 'Alice', zones: ['home', 'work', 'gym', 'school', 'mall', 'park'], activities: ['working', 'exercising', 'shopping', 'walking', 'idle'] },
+                { id: 'person.bob', name: 'Bob', zones: ['home', 'work', 'gym', 'office', 'store'], activities: ['working', 'exercising', 'shopping', 'idle'] },
+                { id: 'person.charlie', name: 'Charlie', zones: ['home', 'school', 'park', 'library'], activities: ['studying', 'playing', 'reading', 'sleeping'] },
+                { id: 'person.david', name: 'David', zones: ['home', 'work', 'gym'], activities: ['working', 'exercising', 'idle'] },
+            ];
+
+            const dummyHass = {
+                states: {
+                    'person.alice': { state: 'home', attributes: { friendly_name: 'Alice', user_id: 'user_alice' } },
+                    'person.bob': { state: 'work', attributes: { friendly_name: 'Bob', user_id: 'user_bob' } },
+                    'person.charlie': { state: 'school', attributes: { friendly_name: 'Charlie', user_id: 'user_charlie' } },
+                    'person.david': { state: 'home', attributes: { friendly_name: 'David' } },
+                    'zone.home': { state: 'zoning', attributes: { friendly_name: 'Home' } },
+                    'zone.work': { state: 'zoning', attributes: { friendly_name: 'Work' } },
+                    'zone.gym': { state: 'zoning', attributes: { friendly_name: 'Gym' } },
+                    'zone.school': { state: 'zoning', attributes: { friendly_name: 'School' } },
+                    'zone.mall': { state: 'zoning', attributes: { friendly_name: 'Mall' } },
+                    'zone.park': { state: 'zoning', attributes: { friendly_name: 'Park' } },
+                    'zone.office': { state: 'zoning', attributes: { friendly_name: 'Office' } },
+                    'zone.store': { state: 'zoning', attributes: { friendly_name: 'Store' } },
+                    'zone.library': { state: 'zoning', attributes: { friendly_name: 'Library' } },
+                    'sensor.alice_activity': { state: 'idle', attributes: { friendly_name: 'Alice Activity' } },
+                    'sensor.bob_activity': { state: 'working', attributes: { friendly_name: 'Bob Activity' } },
+                    'sensor.charlie_activity': { state: 'studying', attributes: { friendly_name: 'Charlie Activity' } },
+                    'sensor.david_activity': { state: 'idle', attributes: { friendly_name: 'David Activity' } },
+                },
+                user: null
+            };
+
+            persons.forEach(p => {
+                const entityId = p.id.replace('person.', 'sensor.');
+                dummyHass.states[entityId] = {
+                    state: p.activities[0],
+                    attributes: { friendly_name: p.name + ' Activity' }
+                };
+            });
+
+            let cardConfig = {
+                type: 'custom:whereabouts-card',
+                persons: persons.map(p => ({
+                    entity_id: p.id,
+                    namedSensors: {
+                        aktivitet: { entity_id: p.id.replace('person.', 'sensor.') }
+                    }
+                })),
+                show_title: true,
+                title: 'Family Whereabouts',
+                show_avatars: false,
+                default_activity: 'er',
+                default_preposition: 'i',
+                zone_groups: [
+                    {
+                        name: 'hjemme',
+                        zones: ['zone.home'],
+                        show_preposition: false,
+                        activities: [
+                            { activity: 'spiller {aktivitet}', conditions: {}, icon: 'mdi:gamepad' }
+                        ]
+                    },
+                    {
+                        name: 'arbied',
+                        zones: ['zone.work', 'zone.office'],
+                        preposition: 'på',
+                        activities: [
+                            { activity: 'jobber', conditions: { aktivitet: 'working' } },
+                            { activity: 'trener', conditions: { aktivitet: 'exercising' } }
+                        ]
+                    }
+                ],
+                activities: [
+                    { activity: 'er hjemme alene', conditions: { user: 'person.alice', where: 'zone.home' }, show_preposition: false, icon: 'mdi:home-account' },
+                    { activity: '{aktivitet}', show_preposition: false, conditions: {} },
+                ],
+                template: '{name} {activity} {-preposition} {-location} <right {icon}>'
+            };
+
+            function createPersonControls() {
+                const container = document.getElementById('personControls');
+                const userSelect = document.getElementById('loggedInUser');
+
+                persons.forEach(p => {
+                    userSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+                });
+                userSelect.innerHTML += `<option value="CUSTOM">Custom (enter ID)...</option>`;
+
+                persons.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = 'person-control';
+                    const initialZone = p.id === 'person.alice' ? 'home' : p.id === 'person.bob' ? 'work' : 'home';
+                    div.innerHTML = `
+                        <label>${p.name}</label>
+                        <select data-person="${p.id}" class="zone-select">
+                            <option value="">-- Select zone --</option>
+                            ${p.zones.map(z => `<option value="zone.${z}" ${z === initialZone ? 'selected' : ''}>${z.charAt(0).toUpperCase() + z.slice(1)}</option>`).join('')}
+                        </select>
+                        <select data-person="${p.id}" class="activity-select">
+                            ${p.activities.map(a => `<option value="${a}">${a}</option>`).join('')}
+                        </select>
+                    `;
+                    container.appendChild(div);
+                });
+
+                document.querySelectorAll('.zone-select').forEach(select => {
+                    select.addEventListener('change', (e) => {
+                        const personId = e.target.dataset.person;
+                        const zone = e.target.value;
+                        const zoneName = zone ? zone.replace('zone.', '') : 'unknown';
+
+                        dummyHass.states[personId] = {
+                            state: zoneName,
+                            attributes: { ...dummyHass.states[personId].attributes }
+                        };
+
+                        updateCard();
+                    });
+                });
+
+                document.querySelectorAll('.activity-select').forEach(select => {
+                    select.addEventListener('change', (e) => {
+                        const personId = e.target.dataset.person;
+                        const activity = e.target.value;
+                        const entityId = personId.replace('person.', 'sensor.');
+
+                        if (dummyHass.states[entityId]) {
+                            dummyHass.states[entityId] = {
+                                ...dummyHass.states[entityId],
+                                state: activity
+                            };
+                        }
+
+                        updateCard();
+                    });
+                });
+
+                userSelect.addEventListener('change', (e) => {
+                    const userId = e.target.value;
+                    const customInput = document.getElementById('customUserId');
+                    const customBtn = document.getElementById('toggleCustomUser');
+
+                    if (userId === 'CUSTOM') {
+                        customInput.style.display = 'inline-block';
+                        customBtn.textContent = 'Select';
+                        userSelect.value = '';
+                    } else if (userId) {
+                        customInput.style.display = 'none';
+                        customBtn.textContent = 'Custom';
+                        const userName = persons.find(p => p.id === userId)?.name || 'User';
+                        dummyHass.user = { id: userId.replace('person.', 'user_'), name: userName };
+                        updateCard();
+                    } else {
+                        customInput.style.display = 'none';
+                        customBtn.textContent = 'Custom';
+                        dummyHass.user = null;
+                        updateCard();
+                    }
+                });
+
+                document.getElementById('toggleCustomUser').addEventListener('click', (e) => {
+                    const userSelect = document.getElementById('loggedInUser');
+                    const customInput = document.getElementById('customUserId');
+
+                    if (userSelect.value === 'CUSTOM') {
+                        userSelect.value = '';
+                        customInput.style.display = 'none';
+                        dummyHass.user = null;
+                    } else {
+                        userSelect.value = 'CUSTOM';
+                        customInput.style.display = 'inline-block';
+                        customInput.focus();
+                    }
+                    updateCard();
+                });
+
+                document.getElementById('customUserId').addEventListener('input', (e) => {
+                    const userId = e.target.value.trim();
+                    if (userId) {
+                        dummyHass.user = { id: userId, name: userId };
+                    } else {
+                        dummyHass.user = null;
+                    }
+                    updateCard();
+                });
+            }
+
+            function updateCard() {
+                const card = document.getElementById('whereaboutscard');
+                card.hass = { ...dummyHass };
+                card.requestUpdate();
+            }
+
+            async function init() {
+                try {
+                    await window.customElements.whenDefined('whereabouts-card');
+                    await window.customElements.whenDefined('whereabouts-card-editor');
+
+                    const card = document.getElementById('whereaboutscard');
+                    const editor = document.getElementById('whereaboutseditor');
+
+                    card.setConfig(cardConfig);
+                    card.hass = dummyHass;
+
+                    editor.hass = dummyHass;
+                    editor.setConfig(cardConfig);
+
+                    editor.addEventListener('config-changed', (e) => {
+                        cardConfig = e.detail.config;
+                        card.setConfig(cardConfig);
+                        card.requestUpdate();
+                    });
+
+                    createPersonControls();
+
+                    console.log('Advanced test page initialized');
+                } catch (e) {
+                    console.error("Error:", e);
+                }
+            }
+
+            init();
+        </script>
+    </body>
+</html>

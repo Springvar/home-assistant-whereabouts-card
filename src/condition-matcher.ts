@@ -196,17 +196,26 @@ function matchCondition(
         if (!currentUser) return false;
 
         return expectedValues.some(expected => {
+            // Special case: "user" matches if the current person is the logged-in user
+            if (expected.toLowerCase() === 'user') {
+                const personEntity = hass.states[person.entity_id];
+                return personEntity?.attributes?.user_id === currentUser.id;
+            }
+
             if (expected === currentUser.id) return true;
             if (expected === currentUser.name) return true;
 
-            const personEntity = hass.states[person.entity_id];
-            if (personEntity?.attributes?.user_id === currentUser.id) {
-                if (expected === person.entity_id ||
-                    expected === person.entity_id.replace('person.', '') ||
-                    expected === person.name) {
-                    return true;
-                }
+            // Check if expected value refers to a person entity (e.g., "person.silje")
+            // and that person is associated with the logged-in user
+            let checkEntityId = expected;
+            if (!expected.includes('.')) {
+                checkEntityId = `person.${expected}`;
             }
+            const checkEntity = hass.states[checkEntityId];
+            if (checkEntity?.attributes?.user_id === currentUser.id) {
+                return true;
+            }
+
             return false;
         });
     }

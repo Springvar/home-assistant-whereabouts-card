@@ -230,14 +230,11 @@ export class WhereaboutsCardEditor extends LitElement {
    * Get the appropriate input type for a condition value field
    */
   getConditionValueInputType(key: string): 'select' | 'number' | 'text' {
-    if (key === 'who' || key === 'when' || key === 'where') {
+    if (key === 'who' || key === 'when' || key === 'where' || key === 'user') {
       return 'select';
     }
     if (key === 'random') {
       return 'number';
-    }
-    if (key === 'user') {
-      return 'text'; // Users not available in frontend
     }
 
     // Check if it's a named sensor
@@ -305,6 +302,13 @@ export class WhereaboutsCardEditor extends LitElement {
       const zones = this.hass ? Object.keys(this.hass.states).filter(id => id.startsWith('zone.')) : [];
 
       return [...zoneGroupNames, ...zones];
+    }
+
+    if (key === 'user') {
+      // "user" option checks if person being evaluated is logged-in user
+      // Person entity options for checking if that person is the logged-in user
+      // "Other" option switches to text input for direct user ID/name
+      return ['user', ...(this._config.persons || []).map(p => p.entity_id), 'Other'];
     }
 
     // Check if it's a named sensor
@@ -660,6 +664,18 @@ export class WhereaboutsCardEditor extends LitElement {
                 </div>
               `;
             })()
+          : key === 'user' && parsed.value === 'Other'
+          ? html`
+              <input
+                type="text"
+                .value="${parsed.value === 'Other' ? '' : parsed.value}"
+                placeholder="User ID or name"
+                style="flex: 1;"
+                @input=${(e: Event) => {
+                  onChangeCallback((e.target as HTMLInputElement).value);
+                }}
+              />
+            `
           : html`
               <select
                 .value="${parsed.value}"
@@ -677,6 +693,8 @@ export class WhereaboutsCardEditor extends LitElement {
                       ? (this._config.persons?.find(p => p.entity_id === option)?.name || this.hass?.states[option]?.attributes?.friendly_name || option)
                       : key === 'where'
                       ? this.getWhereDisplayName(option)
+                      : key === 'user'
+                      ? (option === 'user' ? 'Current user' : option === 'Other' ? 'Other (user ID)...' : this._config.persons?.find(p => p.entity_id === option)?.name || this.hass?.states[option]?.attributes?.friendly_name || option)
                       : option}
                   </option>
                 `)}
