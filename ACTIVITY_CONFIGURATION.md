@@ -145,6 +145,9 @@ Reference your custom named sensors:
   attribute: nested.path        # Optional: check nested attribute instead of state
 ```
 
+**Built-in sensor conditions:**
+- `sensor: data_age` - Hours since the person entity was last updated (`last_updated`/`last_changed`). Use with a numeric `operator` and `value` to detect stale/outdated presence (e.g., `operator: gt, value: 24` = more than 24h old). A missing entity or timestamp is treated as a very large value.
+
 **Operators:**
 - `eq` (default): Equals - supports arrays for OR logic
 - `ne`: Not equals

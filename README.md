@@ -37,7 +37,7 @@ The **Whereabouts Card** goes beyond basic location tracking by giving you compl
 - **Smart Activity Detection**: Define activities using flexible condition rules based on multiple sensor states, time ranges, and custom logic
 - **Named Sensors**: Map generic sensor names to person-specific entities for reusable activity definitions
 - **Zone Groups**: Combine multiple zones (like "School", "Soccer Field", "Library") into a single activity ("Out with kids")
-- **Conditional Display**: Dynamically show or hide persons based on any sensor value or condition
+- **Conditional Display**: Dynamically show or hide persons based on any sensor value or condition, including data staleness (`data_age`)
 - **Flexible Templates**: Customize display format with full template support for any language or style preference
 - **Icon Hierarchy**: Fine-grained control over icon display with activity > zone group > zone precedence
 
@@ -151,9 +151,13 @@ hideIf:
   status: ["away", "vacation"]   # Match any value in array
   timer: "!=idle"                # Not equal comparison
   active: "!"                    # Boolean false check
+  data_age: ">24"                # Stale: no update for >24 hours
 ```
 
 Supported operators: `>`, `<`, `>=`, `<=`, `=`, `!=`, `<>`
+
+**Special sensors:**
+- `data_age` - Hours since the person entity was last updated (`last_updated`/`last_changed`). Useful for hiding outdated ("stale") entries. A missing entity or timestamp is treated as always stale. Example: `data_age: ">24"` hides a person whose location is more than 24h old.
 
 **Special prefix:**
 - `!` - Checks if value is falsy (empty, 0, false, off, no, unavailable, unknown)
@@ -201,6 +205,7 @@ conditions:
   override: "!"                    # Boolean false check
   discord.game: "Counter-Strike"   # Match sensor attribute (dot notation)
   steam.last_online: "!"           # Check if attribute is not falsy
+  data_age: ">24"                  # Stale: no update for >24 hours
   when: ["morning", "weekday"]     # Match multiple time periods (OR logic)
   who: ["person.john", "John"]     # Special: match specific person
   who: "user"                      # Special: match logged-in user only (for private messages)
@@ -238,6 +243,7 @@ conditions:
 ```
 
 **Special Condition Keys:**
+- `data_age`: Hours since the person entity was last updated (`last_updated`/`last_changed`). Supports numeric operators; useful for detecting stale/outdated presence. Example: `data_age: ">24"` matches when the location is more than 24h old. A missing entity or timestamp is treated as a very large value.
 - `random`: Probability-based matching for randomization between similar activities. Value can be:
   - Percentage: `"50%"`, `"75.5%"` (0-100%)
   - Decimal: `"0.5"`, `"0.75"` (0-1)

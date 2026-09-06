@@ -6,7 +6,8 @@ export class ConditionEvaluator {
         private sensorStates: Map<string, any>, // HassEntity
         private personState: string,
         private namedSensors: PersonSensors,
-        private timeProvider: TimeContextProvider
+        private timeProvider: TimeContextProvider,
+        private personEntity?: any // HassEntity for the person (data_age)
     ) {}
 
     evaluateAll(conditions: ActivityCondition[]): boolean {
@@ -39,6 +40,19 @@ export class ConditionEvaluator {
 
     private evaluateSensor(condition: ActivityCondition): boolean {
         const sensorKey = condition.sensor!;
+
+        // Special case: "data_age" - hours since the person entity last changed
+        if (sensorKey === 'data_age') {
+            if (!this.personEntity) return false;
+            const lastChanged = this.personEntity.last_changed || this.personEntity.last_updated;
+            if (!lastChanged) return false;
+            const timestamp = new Date(lastChanged).getTime();
+            if (isNaN(timestamp)) return false;
+            const ageHours = (Date.now() - timestamp) / 3600000;
+            const expectedValue = condition.value ?? condition.state;
+            return this.compare(ageHours, expectedValue, condition.operator || 'eq');
+        }
+
         const sensor = this.namedSensors[sensorKey];
 
         if (!sensor) return false;

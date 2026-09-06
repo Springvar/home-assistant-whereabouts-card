@@ -146,6 +146,45 @@ describe('ConditionEvaluator', () => {
         });
     });
 
+    describe('data_age conditions', () => {
+        const hoursAgo = (h: number) => new Date(Date.now() - h * 3600000).toISOString();
+        const evaluatorWith = (personEntity: any) =>
+            new ConditionEvaluator(new Map(), 'home', {}, new TimeContextProvider(), personEntity);
+
+        it('matches stale data with gt operator', () => {
+            const personEntity = { state: 'home', last_changed: hoursAgo(30) };
+            expect(evaluatorWith(personEntity).evaluateAll([{ sensor: 'data_age', operator: 'gt', value: 24 }])).toBe(true);
+            expect(evaluatorWith(personEntity).evaluateAll([{ sensor: 'data_age', operator: 'gt', value: 48 }])).toBe(false);
+        });
+
+        it('matches fresh data with lt operator', () => {
+            const personEntity = { state: 'home', last_changed: hoursAgo(2) };
+            expect(evaluatorWith(personEntity).evaluateAll([{ sensor: 'data_age', operator: 'lt', value: 24 }])).toBe(true);
+        });
+
+        it('supports gte/lte operators', () => {
+            const stale = { state: 'home', last_changed: hoursAgo(25) };
+            expect(evaluatorWith(stale).evaluateAll([{ sensor: 'data_age', operator: 'gte', value: 24 }])).toBe(true);
+            const fresh = { state: 'home', last_changed: hoursAgo(23) };
+            expect(evaluatorWith(fresh).evaluateAll([{ sensor: 'data_age', operator: 'lte', value: 24 }])).toBe(true);
+        });
+
+        it('uses last_updated fallback when last_changed absent', () => {
+            const personEntity = { state: 'home', last_updated: hoursAgo(10) };
+            expect(evaluatorWith(personEntity).evaluateAll([{ sensor: 'data_age', operator: 'gt', value: 5 }])).toBe(true);
+            expect(evaluatorWith(personEntity).evaluateAll([{ sensor: 'data_age', operator: 'gt', value: 12 }])).toBe(false);
+        });
+
+        it('returns false when person entity is missing', () => {
+            expect(evaluatorWith(null).evaluateAll([{ sensor: 'data_age', operator: 'gt', value: 0 }])).toBe(false);
+        });
+
+        it('returns false when person entity has no timestamp', () => {
+            const personEntity = { state: 'home' };
+            expect(evaluatorWith(personEntity).evaluateAll([{ sensor: 'data_age', operator: 'gt', value: 0 }])).toBe(false);
+        });
+    });
+
     describe('person state conditions', () => {
         it('evaluates person state with single expected value', () => {
             const sensorStates = new Map();

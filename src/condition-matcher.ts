@@ -51,6 +51,20 @@ function getNestedAttribute(obj: any, path: string): any {
 }
 
 /**
+ * Get the age (in hours) since the entity last changed state.
+ * Returns Infinity if the entity is missing or has no timestamp.
+ */
+function getDataAgeHours(hass: any, person: PersonConfig): number {
+    const entity = hass.states?.[person.entity_id];
+    if (!entity) return Infinity;
+    const lastChanged = entity.last_changed || entity.last_updated;
+    if (!lastChanged) return Infinity;
+    const timestamp = new Date(lastChanged).getTime();
+    if (isNaN(timestamp)) return Infinity;
+    return (Date.now() - timestamp) / 3600000;
+}
+
+/**
  * Parse random condition value (percentage or decimal)
  * Returns probability as decimal (0-1) or null if invalid
  */
@@ -132,6 +146,12 @@ function matchCondition(
         const probability = parseRandomValue(expectedValue);
         if (probability === null) return false;
         return Math.random() < probability;
+    }
+
+    // Special case: "data_age" - hours since entity last changed (staleness)
+    if (key === 'data_age') {
+        const ageHours = getDataAgeHours(hass, person);
+        return matchesValue(String(ageHours), expectedValue);
     }
 
     // Special case: "when" matches array of time periods (OR logic)

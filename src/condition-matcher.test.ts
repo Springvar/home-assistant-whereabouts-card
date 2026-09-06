@@ -293,4 +293,56 @@ describe('matchConditions', () => {
 
         expect(matchConditions(hass, person, { user: 'user123' })).toBe(false);
     });
+
+    describe('data_age', () => {
+        const hoursAgo = (h: number) => new Date(Date.now() - h * 3600000).toISOString();
+
+        test('matches > operator for stale data', () => {
+            const hass = createHass({
+                'person.john': { state: 'home', last_changed: hoursAgo(30) }
+            });
+            const person: PersonConfig = { entity_id: 'person.john' };
+
+            expect(matchConditions(hass, person, { data_age: '>24' })).toBe(true);
+            expect(matchConditions(hass, person, { data_age: '>48' })).toBe(false);
+        });
+
+        test('matches < operator for fresh data', () => {
+            const hass = createHass({
+                'person.john': { state: 'home', last_changed: hoursAgo(2) }
+            });
+            const person: PersonConfig = { entity_id: 'person.john' };
+
+            expect(matchConditions(hass, person, { data_age: '<24' })).toBe(true);
+            expect(matchConditions(hass, person, { data_age: '<1' })).toBe(false);
+        });
+
+        test('matches >= and <= operators', () => {
+            const hass = createHass({
+                'person.john': { state: 'home', last_changed: hoursAgo(23) }
+            });
+            const person: PersonConfig = { entity_id: 'person.john' };
+
+            expect(matchConditions(hass, person, { data_age: '>=20' })).toBe(true);
+            expect(matchConditions(hass, person, { data_age: '<=24' })).toBe(true);
+            expect(matchConditions(hass, person, { data_age: '>=24' })).toBe(false);
+        });
+
+        test('returns infinite age for missing entity', () => {
+            const hass = createHass({});
+            const person: PersonConfig = { entity_id: 'person.john' };
+
+            expect(matchConditions(hass, person, { data_age: '>0' })).toBe(true);
+        });
+
+        test('uses last_updated fallback when last_changed absent', () => {
+            const hass = createHass({
+                'person.john': { state: 'home', last_updated: hoursAgo(10) }
+            });
+            const person: PersonConfig = { entity_id: 'person.john' };
+
+            expect(matchConditions(hass, person, { data_age: '>5' })).toBe(true);
+            expect(matchConditions(hass, person, { data_age: '>12' })).toBe(false);
+        });
+    });
 });
