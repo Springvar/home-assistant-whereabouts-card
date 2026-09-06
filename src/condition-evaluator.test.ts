@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { ConditionEvaluator } from './condition-evaluator';
 import { TimeContextProvider } from './time-context-provider';
 import type { PersonSensors, ActivityCondition } from './types';
+import type { StateLookup } from './data-age';
 
 describe('ConditionEvaluator', () => {
     function createMockEntity(state: string, attributes: Record<string, any> = {}) {
@@ -182,6 +183,45 @@ describe('ConditionEvaluator', () => {
         it('returns false when person entity has no timestamp', () => {
             const personEntity = { state: 'home' };
             expect(evaluatorWith(personEntity).evaluateAll([{ sensor: 'data_age', operator: 'gt', value: 0 }])).toBe(false);
+        });
+
+        it('bases age on newest position tracker, ignoring person entity churn', () => {
+            const churned = hoursAgo(2);
+            const phoneUpdated = hoursAgo(24 * 13);
+            const personEntity = {
+                entity_id: 'person.john',
+                state: 'Trøndelag',
+                last_changed: churned,
+                last_updated: churned,
+                attributes: {
+                    device_trackers: ['device_tracker.john_phone', 'device_tracker.john_router']
+                }
+            };
+            const states: StateLookup = (id) => ({
+                'device_tracker.john_phone': {
+                    state: 'Trøndelag',
+                    last_changed: phoneUpdated,
+                    last_updated: phoneUpdated,
+                    attributes: { latitude: 63.4, longitude: 10.4 }
+                },
+                'device_tracker.john_router': {
+                    state: 'Trøndelag',
+                    last_changed: churned,
+                    last_updated: churned,
+                    attributes: { tracking_type: 'connection' }
+                }
+            }[id]);
+            const evaluator = new ConditionEvaluator(
+                new Map(),
+                'Trøndelag',
+                {},
+                new TimeContextProvider(),
+                personEntity,
+                states
+            );
+
+            expect(evaluator.evaluateAll([{ sensor: 'data_age', operator: 'gt', value: 24 }])).toBe(true);
+            expect(evaluator.evaluateAll([{ sensor: 'data_age', operator: 'gt', value: 336 }])).toBe(false);
         });
     });
 

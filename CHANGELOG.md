@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.1-pre.2] - 2026-09-06
+
+### Fixed
+
+- **`data_age` reflects actual position freshness** - For `person.*` entities the age is now measured from the newest update among the person's attached **position** device trackers (those with `tracking_type: position` or GPS coordinates), instead of the person entity's own `last_updated`/`last_changed`. The person entity's timestamp churns on unrelated updates — presence pings from connection trackers or source-tracker switches — which falsely hid stale positions. Falls back to the entity's own timestamp when no position trackers exist. Debug output now includes `data_age_basis`, showing which timestamp the age is based on and why.
+
 ## [0.2.1-pre.1] - 2026-09-06
 
 ### Added

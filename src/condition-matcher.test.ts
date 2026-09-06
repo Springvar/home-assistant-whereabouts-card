@@ -344,5 +344,93 @@ describe('matchConditions', () => {
             expect(matchConditions(hass, person, { data_age: '>5' })).toBe(true);
             expect(matchConditions(hass, person, { data_age: '>12' })).toBe(false);
         });
+
+        test('bases age on newest position tracker, ignoring person entity churn', () => {
+            const hass = createHass({
+                'person.john': {
+                    entity_id: 'person.john',
+                    state: 'Trøndelag',
+                    last_changed: hoursAgo(2),
+                    last_updated: hoursAgo(2),
+                    attributes: {
+                        device_trackers: ['device_tracker.john_phone', 'device_tracker.john_router']
+                    }
+                },
+                'device_tracker.john_phone': {
+                    state: 'Trøndelag',
+                    last_changed: hoursAgo(24 * 13),
+                    last_updated: hoursAgo(24 * 13),
+                    attributes: { tracking_type: 'position', latitude: 63.4, longitude: 10.4 }
+                },
+                'device_tracker.john_router': {
+                    state: 'Trøndelag',
+                    last_changed: hoursAgo(2),
+                    last_updated: hoursAgo(2),
+                    attributes: { tracking_type: 'connection' }
+                }
+            });
+            const person: PersonConfig = { entity_id: 'person.john' };
+
+            expect(matchConditions(hass, person, { data_age: '>24' })).toBe(true);
+            expect(matchConditions(hass, person, { data_age: '>336' })).toBe(false);
+        });
+
+        test('treats person as fresh when newest position tracker is recent', () => {
+            const hass = createHass({
+                'person.john': {
+                    entity_id: 'person.john',
+                    state: 'Trøndelag',
+                    last_changed: hoursAgo(2),
+                    attributes: {
+                        device_trackers: ['device_tracker.john_phone']
+                    }
+                },
+                'device_tracker.john_phone': {
+                    state: 'Trøndelag',
+                    last_changed: hoursAgo(1),
+                    attributes: { latitude: 63.4, longitude: 10.4 }
+                }
+            });
+            const person: PersonConfig = { entity_id: 'person.john' };
+
+            expect(matchConditions(hass, person, { data_age: '>24' })).toBe(false);
+            expect(matchConditions(hass, person, { data_age: '<2' })).toBe(true);
+        });
+
+        test('falls back to person entity when only connection trackers are attached', () => {
+            const hass = createHass({
+                'person.john': {
+                    entity_id: 'person.john',
+                    state: 'Trøndelag',
+                    last_changed: hoursAgo(30),
+                    attributes: {
+                        device_trackers: ['device_tracker.john_router']
+                    }
+                },
+                'device_tracker.john_router': {
+                    state: 'Trøndelag',
+                    last_changed: hoursAgo(2),
+                    attributes: { tracking_type: 'connection' }
+                }
+            });
+            const person: PersonConfig = { entity_id: 'person.john' };
+
+            expect(matchConditions(hass, person, { data_age: '>24' })).toBe(true);
+        });
+
+        test('falls back to person entity when no device trackers are attached', () => {
+            const hass = createHass({
+                'person.john': {
+                    entity_id: 'person.john',
+                    state: 'Trøndelag',
+                    last_changed: hoursAgo(10),
+                    attributes: {}
+                }
+            });
+            const person: PersonConfig = { entity_id: 'person.john' };
+
+            expect(matchConditions(hass, person, { data_age: '>5' })).toBe(true);
+            expect(matchConditions(hass, person, { data_age: '>12' })).toBe(false);
+        });
     });
 });

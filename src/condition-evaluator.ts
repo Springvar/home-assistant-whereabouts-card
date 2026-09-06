@@ -1,5 +1,7 @@
 import { ActivityCondition, PersonSensors, ConditionOperator } from './types';
 import { TimeContextProvider } from './time-context-provider';
+import { getDataAgeHours } from './data-age';
+import type { StateLookup } from './data-age';
 
 export class ConditionEvaluator {
     constructor(
@@ -7,7 +9,8 @@ export class ConditionEvaluator {
         private personState: string,
         private namedSensors: PersonSensors,
         private timeProvider: TimeContextProvider,
-        private personEntity?: any // HassEntity for the person (data_age)
+        private personEntity?: any, // HassEntity for the person (data_age)
+        private states: StateLookup = () => undefined
     ) {}
 
     evaluateAll(conditions: ActivityCondition[]): boolean {
@@ -41,14 +44,11 @@ export class ConditionEvaluator {
     private evaluateSensor(condition: ActivityCondition): boolean {
         const sensorKey = condition.sensor!;
 
-        // Special case: "data_age" - hours since the person entity last changed
+        // Special case: "data_age" - how old the person's whereabouts data is
         if (sensorKey === 'data_age') {
             if (!this.personEntity) return false;
-            const lastChanged = this.personEntity.last_changed || this.personEntity.last_updated;
-            if (!lastChanged) return false;
-            const timestamp = new Date(lastChanged).getTime();
-            if (isNaN(timestamp)) return false;
-            const ageHours = (Date.now() - timestamp) / 3600000;
+            const ageHours = getDataAgeHours(this.personEntity, this.states);
+            if (!isFinite(ageHours)) return false;
             const expectedValue = condition.value ?? condition.state;
             return this.compare(ageHours, expectedValue, condition.operator || 'eq');
         }

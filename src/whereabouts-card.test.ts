@@ -463,6 +463,93 @@ describe('WhereaboutsCard', () => {
             debugSpy.mockRestore();
         });
 
+        it('reports position tracker as data_age basis despite fresh person entity', async () => {
+            const debugSpy = vi.spyOn(console, 'debug');
+            const phoneUpdated = new Date(Date.now() - 14 * 24 * 3600000).toISOString();
+            const churned = new Date(Date.now() - 14 * 3600000).toISOString();
+            const hass = createMockHass({
+                'person.john': {
+                    entity_id: 'person.john',
+                    state: 'Trøndelag',
+                    last_changed: churned,
+                    last_updated: churned,
+                    attributes: {
+                        friendly_name: 'John',
+                        device_trackers: ['device_tracker.john_phone', 'device_tracker.john_router'],
+                        source: 'device_tracker.john_router',
+                        source_timestamp: churned
+                    }
+                },
+                'device_tracker.john_phone': {
+                    state: 'Trøndelag',
+                    last_changed: phoneUpdated,
+                    last_updated: phoneUpdated,
+                    attributes: { tracking_type: 'position', latitude: 63.4, longitude: 10.4 }
+                },
+                'device_tracker.john_router': {
+                    state: 'Trøndelag',
+                    last_changed: churned,
+                    last_updated: churned,
+                    attributes: { tracking_type: 'connection' }
+                }
+            });
+            element.setConfig({ debug: true, persons: [{ entity_id: 'person.john' }] });
+            element.hass = hass;
+            await element.updateComplete;
+
+            const info = debugSpy.mock.calls.map(c => c[0]).find((a) => a && a.entity_id === 'person.john');
+            expect(info).toBeDefined();
+            expect(info.last_updated).toBe(churned);
+            expect(info.data_age_hours).toBeGreaterThan(24 * 13);
+            expect(info.data_age_basis).toEqual({
+                timestamp: phoneUpdated,
+                source: 'device_tracker.john_phone',
+                reason: 'position-tracker'
+            });
+            debugSpy.mockRestore();
+        });
+
+        it('hides person based on stale position tracker despite fresh person entity', async () => {
+            const debugSpy = vi.spyOn(console, 'debug');
+            const phoneUpdated = new Date(Date.now() - 14 * 24 * 3600000).toISOString();
+            const churned = new Date(Date.now() - 14 * 3600000).toISOString();
+            const hass = createMockHass({
+                'person.john': {
+                    entity_id: 'person.john',
+                    state: 'Trøndelag',
+                    last_changed: churned,
+                    last_updated: churned,
+                    attributes: {
+                        friendly_name: 'John',
+                        device_trackers: ['device_tracker.john_phone'],
+                        source: 'device_tracker.john_phone'
+                    }
+                },
+                'device_tracker.john_phone': {
+                    state: 'Trøndelag',
+                    last_changed: phoneUpdated,
+                    last_updated: phoneUpdated,
+                    attributes: { tracking_type: 'position', latitude: 63.4, longitude: 10.4 }
+                }
+            });
+            element.setConfig({
+                debug: true,
+                persons: [{
+                    entity_id: 'person.john',
+                    hideIf: { data_age: '>24' }
+                }]
+            });
+            element.hass = hass;
+            await element.updateComplete;
+
+            const info = debugSpy.mock.calls.map(c => c[0]).find((a) => a && a.entity_id === 'person.john');
+            expect(info).toBeDefined();
+            expect(info.hide_if.matched).toBe(true);
+            expect(info.hidden).toBe(true);
+            expect(element.shadowRoot?.textContent || '').not.toContain('John');
+            debugSpy.mockRestore();
+        });
+
         it('does not log when debug is disabled', async () => {
             const debugSpy = vi.spyOn(console, 'debug');
             const hass = createMockHass({

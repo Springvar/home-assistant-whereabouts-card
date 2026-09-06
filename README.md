@@ -99,7 +99,7 @@ persons:
 
 Set `debug: true` on the card to get a collapsed console group per person with the full set of **available** and **calculated** values:
 
-- `available` - person entity state, `last_changed`, `last_updated`, computed `data_age_hours`, the tracker attribution chain (`source`, `source_timestamp`, `source_tracker`, and each `device_trackers` entry with its own `data_age_hours` and coordinates), and the resolved state/attribute value of every configured named sensor.
+- `available` - person entity state, `last_changed`, `last_updated`, computed `data_age_hours` and `data_age_basis` (which timestamp the age is based on and why: a position tracker or the entity itself), the tracker attribution chain (`source`, `source_timestamp`, `source_tracker`, and each `device_trackers` entry with its own `data_age_hours` and coordinates), and the resolved state/attribute value of every configured named sensor.
 - `calculated` - the matched zone group, evaluated activity (with placeholders resolved), calculated activity rule, effective preposition/location/icon, template variables, and whether the person was hidden by `hideIf`.
 
 ```yaml
@@ -176,7 +176,7 @@ hideIf:
 Supported operators: `>`, `<`, `>=`, `<=`, `=`, `!=`, `<>`
 
 **Special sensors:**
-- `data_age` - Hours since the person entity was last updated (`last_updated`/`last_changed`). Useful for hiding outdated ("stale") entries. A missing entity or timestamp is treated as always stale. Example: `data_age: ">24"` hides a person whose location is more than 24h old.
+- `data_age` - Hours since the person's location was last known to be updated. For `person.*` entities this is measured from the newest update among their attached position device trackers (those with `tracking_type: position` or GPS coordinates), so unrelated updates — such as presence pings from connection trackers or the person entity's source-tracker switches — don't falsely reset the age. Falls back to the entity's `last_changed`/`last_updated` when no position trackers exist. Useful for hiding outdated ("stale") entries. A missing entity or timestamp is treated as always stale. Example: `data_age: ">24"` hides a person whose location is more than 24h old.
 
 **Special prefix:**
 - `!` - Checks if value is falsy (empty, 0, false, off, no, unavailable, unknown)
@@ -262,7 +262,7 @@ conditions:
 ```
 
 **Special Condition Keys:**
-- `data_age`: Hours since the person entity was last updated (`last_updated`/`last_changed`). Supports numeric operators; useful for detecting stale/outdated presence. Example: `data_age: ">24"` matches when the location is more than 24h old. A missing entity or timestamp is treated as a very large value.
+- `data_age`: Hours since the person's location was last known to be updated. For `person.*` entities this is measured from the newest update among their attached position device trackers (those with `tracking_type: position` or GPS coordinates), so unrelated updates — such as presence pings from connection trackers or the person entity's source-tracker switches — don't falsely reset the age. Falls back to the entity's `last_changed`/`last_updated` when no position trackers exist. Supports numeric operators; useful for detecting stale/outdated presence. Example: `data_age: ">24"` matches when the location is more than 24h old. A missing entity or timestamp is treated as a very large value.
 - `random`: Probability-based matching for randomization between similar activities. Value can be:
   - Percentage: `"50%"`, `"75.5%"` (0-100%)
   - Decimal: `"0.5"`, `"0.75"` (0-1)

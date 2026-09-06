@@ -146,7 +146,7 @@ Reference your custom named sensors:
 ```
 
 **Built-in sensor conditions:**
-- `sensor: data_age` - Hours since the person entity was last updated (`last_updated`/`last_changed`). Use with a numeric `operator` and `value` to detect stale/outdated presence (e.g., `operator: gt, value: 24` = more than 24h old). A missing entity or timestamp is treated as a very large value.
+- `sensor: data_age` - Hours since the person's location was last known to be updated. For `person.*` entities this is measured from the newest update among their attached position device trackers (those with `tracking_type: position` or GPS coordinates), so unrelated updates — such as presence pings from connection trackers or the person entity's source-tracker switches — don't falsely reset the age. Falls back to the entity's `last_changed`/`last_updated` when no position trackers exist. Use with a numeric `operator` and `value` to detect stale/outdated presence (e.g., `operator: gt, value: 24` = more than 24h old). A missing entity or timestamp is treated as a very large value.
 
 **Operators:**
 - `eq` (default): Equals - supports arrays for OR logic

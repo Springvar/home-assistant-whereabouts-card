@@ -74,7 +74,8 @@ export class ActivityCalculator {
             personEntity.state,
             this.personConfig.namedSensors || {},
             this.timeProvider,
-            personEntity
+            personEntity,
+            (entityId) => this.hass.states?.[entityId]
         );
 
         return evaluator.evaluateAll(rule.conditions);
