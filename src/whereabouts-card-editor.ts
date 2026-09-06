@@ -236,6 +236,9 @@ export class WhereaboutsCardEditor extends LitElement {
     if (key === 'random') {
       return 'number';
     }
+    if (key === 'data_age') {
+      return 'number';
+    }
 
     // Check if it's a named sensor
     if (this.uniqueNamedSensors.includes(key)) {
@@ -1494,6 +1497,7 @@ export class WhereaboutsCardEditor extends LitElement {
                             <option value="when" ?selected="${key === 'when'}">when</option>
                             <option value="user" ?selected="${key === 'user'}">user</option>
                             <option value="random" ?selected="${key === 'random'}">random</option>
+                            <option value="data_age" ?selected="${key === 'data_age'}">data_age</option>
                             ${this.uniqueNamedSensors.map(sensorName => html`
                               <option value="${sensorName}" ?selected="${key === sensorName}">${sensorName}</option>
                             `)}
@@ -1644,6 +1648,7 @@ export class WhereaboutsCardEditor extends LitElement {
                             <option value="when" ?selected="${key === 'when'}">when</option>
                             <option value="user" ?selected="${key === 'user'}">user</option>
                             <option value="random" ?selected="${key === 'random'}">random</option>
+                            <option value="data_age" ?selected="${key === 'data_age'}">data_age</option>
                             ${this.uniqueNamedSensors.map(sensorName => html`
                               <option value="${sensorName}" ?selected="${key === sensorName}">${sensorName}</option>
                             `)}
@@ -1843,6 +1848,7 @@ export class WhereaboutsCardEditor extends LitElement {
                             <option value="when" ?selected="${key === 'when'}">when</option>
                             <option value="user" ?selected="${key === 'user'}">user</option>
                             <option value="random" ?selected="${key === 'random'}">random</option>
+                            <option value="data_age" ?selected="${key === 'data_age'}">data_age</option>
                             ${this.uniqueNamedSensors.map(sensorName => html`
                               <option value="${sensorName}" ?selected="${key === sensorName}">${sensorName}</option>
                             `)}
@@ -1979,6 +1985,7 @@ export class WhereaboutsCardEditor extends LitElement {
                                     <option value="when" ?selected="${key === 'when'}">when</option>
                                     <option value="user" ?selected="${key === 'user'}">user</option>
                                     <option value="random" ?selected="${key === 'random'}">random</option>
+                                    <option value="data_age" ?selected="${key === 'data_age'}">data_age</option>
                                     ${this.uniqueNamedSensors.map(sensorName => html`
                                       <option value="${sensorName}" ?selected="${key === sensorName}">${sensorName}</option>
                                     `)}
