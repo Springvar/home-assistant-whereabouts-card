@@ -4,6 +4,12 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
+## [0.2.3-pre] - 2026-09-06
+
+### Fixed
+
+- `data_age` is now exposed as a condition option in the card editor (hideIf, activities, zone group conditions, and zone group activities), rendered as a numeric operator + hours field
+
 ## [0.2.2-pre] - 2026-09-06
 
 ### Added
