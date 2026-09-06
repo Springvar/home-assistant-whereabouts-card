@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import './whereabouts-card';
 
 // Mock hass object
@@ -348,6 +348,86 @@ describe('WhereaboutsCard', () => {
             expect(content).toContain('Office');
         });
 
+    });
+
+    describe('debug', () => {
+        it('defaults debug to false', () => {
+            element.setConfig({ persons: [] });
+            expect((element as any).debug).toBe(false);
+        });
+
+        it('enables debug when config sets debug to true', () => {
+            element.setConfig({ persons: [], debug: true });
+            expect((element as any).debug).toBe(true);
+        });
+
+        it('logs available sensor values and data_age per person when enabled', async () => {
+            const debugSpy = vi.spyOn(console, 'debug');
+            const hass = createMockHass({
+                'person.john': {
+                    state: 'home',
+                    last_changed: new Date(Date.now() - 30 * 3600000).toISOString(),
+                    attributes: { friendly_name: 'John' }
+                },
+                'sensor.john_activity': { state: 'working' }
+            });
+            element.setConfig({
+                debug: true,
+                persons: [{
+                    entity_id: 'person.john',
+                    namedSensors: { activity: { entity_id: 'sensor.john_activity' } }
+                }]
+            });
+            element.hass = hass;
+            await element.updateComplete;
+
+            const info = debugSpy.mock.calls.map(c => c[0]).find((a) => a && a.entity_id === 'person.john');
+            expect(info).toBeDefined();
+            expect(info.data_age_hours).toBeGreaterThan(24);
+            expect(info.sensors.activity.value).toBe('working');
+            debugSpy.mockRestore();
+        });
+
+        it('logs hideIf match for stale data_age', async () => {
+            const debugSpy = vi.spyOn(console, 'debug');
+            const hass = createMockHass({
+                'person.john': {
+                    state: 'home',
+                    last_changed: new Date(Date.now() - 30 * 3600000).toISOString(),
+                    attributes: { friendly_name: 'John' }
+                }
+            });
+            element.setConfig({
+                debug: true,
+                persons: [{
+                    entity_id: 'person.john',
+                    hideIf: { data_age: '>24' }
+                }]
+            });
+            element.hass = hass;
+            await element.updateComplete;
+
+            const info = debugSpy.mock.calls.map(c => c[0]).find((a) => a && a.entity_id === 'person.john');
+            expect(info).toBeDefined();
+            expect(info.data_age_hours).toBeGreaterThan(24);
+            expect(info.hide_if.matched).toBe(true);
+            expect(info.hidden).toBe(true);
+            expect(element.shadowRoot?.textContent || '').not.toContain('John');
+            debugSpy.mockRestore();
+        });
+
+        it('does not log when debug is disabled', async () => {
+            const debugSpy = vi.spyOn(console, 'debug');
+            const hass = createMockHass({
+                'person.john': { state: 'home', attributes: { friendly_name: 'John' } }
+            });
+            element.setConfig({ persons: [{ entity_id: 'person.john' }] });
+            element.hass = hass;
+            await element.updateComplete;
+
+            expect(debugSpy).not.toHaveBeenCalled();
+            debugSpy.mockRestore();
+        });
     });
 
     describe('getConfigElement', () => {

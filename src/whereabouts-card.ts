@@ -32,6 +32,7 @@ export interface WhereaboutsCardConfig {
     activities?: Activity[];
     zone_groups?: ZoneGroup[];
     template?: string; // Template for display (default: "{name} {activity} {-preposition} {-location} <right {icon}>")
+    debug?: boolean; // Dump available and calculated values for each person to the browser console
     // Style customization
     style?: {
         container_margin?: string;
@@ -88,6 +89,7 @@ class WhereaboutsCard extends LitElement {
 
     private _hass: any;
     private _trackedEntities: Set<string> = new Set();
+    private debug = false;
 
     @property({ attribute: false })
     set hass(value: any) {
@@ -187,6 +189,7 @@ class WhereaboutsCard extends LitElement {
         this.activities = config.activities || [];
         this.zone_groups = (config.zone_groups || []).map((z) => ({ ...z, show_preposition: z.show_preposition !== false }));
         this.template = config.template || '{name} {activity} {-preposition} {-location} <right {icon}>';
+        this.debug = config.debug === true;
 
         // Update tracked entities
         this.updateTrackedEntities();
@@ -235,10 +238,21 @@ class WhereaboutsCard extends LitElement {
                 <div>
                     ${this.persons.map((person) => {
                         const entity = this.hass.states[person.entity_id];
-                        if (!entity) return html`<div>${person.entity_id} – unavailable</div>`;
+
+                        // Debug: dump available and calculated values for this person
+                        const debugInfo: { [key: string]: any } | null = this.debug ? this.buildDebugInfo(person) : null;
+                        if (debugInfo) debugInfo.available = !!entity;
+
+                        if (!entity) {
+                            if (debugInfo) this.logDebug(person, { ...debugInfo, hidden: true, note: 'person entity unavailable' });
+                            return html`<div>${person.entity_id} – unavailable</div>`;
+                        }
 
                         // Check hideIf condition
-                        if (person.hideIf && matchConditions(this.hass, person, person.hideIf)) {
+                        const hiddenByHideIf = !!(person.hideIf && matchConditions(this.hass, person, person.hideIf));
+                        if (debugInfo) debugInfo.hide_if = { conditions: person.hideIf, matched: hiddenByHideIf };
+                        if (hiddenByHideIf) {
+                            if (debugInfo) this.logDebug(person, { ...debugInfo, hidden: true, note: 'hidden by hideIf' });
                             return html``; // Hide this person
                         }
 
@@ -288,11 +302,13 @@ class WhereaboutsCard extends LitElement {
                         let showPreposition = true;
                         let zoneNameOverride: string | undefined;
                         let zoneGroupIcon: string | undefined;
+                        let matchedZoneGroupName: string | undefined;
 
                         // Check if zone is in any zone group (match by entity ID or friendly name)
                         if (Array.isArray(this.zone_groups)) {
                             for (const group of this.zone_groups) {
                                 if (group.zones.includes(zoneEntityId) || group.zones.includes(personState)) {
+                                    matchedZoneGroupName = group.name ?? group.zones.join('/');
                                     showPreposition = group.show_preposition !== false;
                                     if (group.preposition) usedPreposition = group.preposition;
                                     if (group.name && group.override_location !== false) zoneNameOverride = group.name;
@@ -384,6 +400,27 @@ class WhereaboutsCard extends LitElement {
                             ? person.show_avatar
                             : this.show_avatars;
 
+                        if (debugInfo) {
+                            this.logDebug(person, {
+                                ...debugInfo,
+                                hidden: false,
+                                name,
+                                zone: zoneEntityId,
+                                zone_display: zoneDisplay,
+                                zone_group: matchedZoneGroupName,
+                                activity: evaluatedActivity
+                                    ? { ...evaluatedActivity, resolved_text: activityText }
+                                    : null,
+                                calculated_activity: calculatedActivity,
+                                preposition: effectivePreposition,
+                                show_preposition: effectiveShowPreposition,
+                                location: locationText,
+                                icon: displayIcon,
+                                avatar: avatarUrl,
+                                template_vars: templateVars
+                            });
+                        }
+
                         return html`
                             <div class="person-container" style="${containerStyle}">
                                 ${shouldShowAvatar && avatarUrl ? html`
@@ -410,6 +447,73 @@ class WhereaboutsCard extends LitElement {
                 </div>
             </ha-card>
         `;
+    }
+
+    private computeDataAgeHours(entity: any): number | null {
+        const lastChanged = entity.last_changed || entity.last_updated;
+        if (!lastChanged) return null;
+        const timestamp = new Date(lastChanged).getTime();
+        if (isNaN(timestamp)) return null;
+        return (Date.now() - timestamp) / 3600000;
+    }
+
+    private getNestedAttribute(obj: any, path: string): any {
+        return path.split('.').reduce((current, key) => current?.[key], obj);
+    }
+
+    private buildDebugInfo(person: PersonConfig): { [key: string]: any } | null {
+        if (!this.debug) return null;
+
+        const entity = this.hass.states?.[person.entity_id];
+        const info: { [key: string]: any } = {
+            entity_id: person.entity_id,
+            name: person.name || undefined
+        };
+
+        if (entity) {
+            info.state = entity.state;
+            info.last_changed = entity.last_changed;
+            info.last_updated = entity.last_updated;
+            info.data_age_hours = this.computeDataAgeHours(entity);
+        } else {
+            info.state = null;
+            info.data_age_hours = null;
+        }
+
+        info.sensors = {};
+        if (person.namedSensors) {
+            for (const [key, sensor] of Object.entries(person.namedSensors)) {
+                if (!sensor?.entity_id || key === '') continue;
+                const entityIds = Array.isArray(sensor.entity_id) ? sensor.entity_id : [sensor.entity_id];
+                const resolved: any[] = [];
+                for (const sensorEntityId of entityIds) {
+                    const sensorEntity = this.hass.states?.[sensorEntityId];
+                    if (!sensorEntity) {
+                        resolved.push({ entity_id: sensorEntityId, available: false });
+                        continue;
+                    }
+                    const attribute = sensor.attribute || undefined;
+                    const value = attribute
+                        ? this.getNestedAttribute(sensorEntity.attributes, attribute)
+                        : sensorEntity.state;
+                    resolved.push({
+                        entity_id: sensorEntityId,
+                        state: sensorEntity.state,
+                        attribute,
+                        value: value == null ? null : value
+                    });
+                }
+                info.sensors[key] = resolved.length === 1 ? resolved[0] : resolved;
+            }
+        }
+
+        return info;
+    }
+
+    private logDebug(person: { entity_id: string }, info: { [key: string]: any }): void {
+        console.groupCollapsed(`[Whereabouts] ${person.entity_id}`);
+        console.debug(info);
+        console.groupEnd();
     }
 
     private resolveSensorPlaceholders(text: string, person: PersonConfig): string {

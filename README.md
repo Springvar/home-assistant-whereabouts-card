@@ -93,6 +93,25 @@ persons:
 | `show_avatars` | Show person avatars in a separate column | `false` | Boolean |
 | `default_activity` | Default activity for location display (e.g., "is", "are") | `is` | String |
 | `default_preposition` | Default preposition for locations (e.g., "in", "at") | `in` | String |
+| `debug` | Dump each person's available and calculated values to the browser console | `false` | Boolean |
+
+### Debugging
+
+Set `debug: true` on the card to get a collapsed console group per person with the full set of **available** and **calculated** values:
+
+- `available` - person entity state, `last_changed`, `last_updated`, computed `data_age_hours`, and the resolved state/attribute value of every configured named sensor.
+- `calculated` - the matched zone group, evaluated activity (with placeholders resolved), calculated activity rule, effective preposition/location/icon, template variables, and whether the person was hidden by `hideIf`.
+
+```yaml
+type: custom:whereabouts-card
+debug: true
+persons:
+  - entity_id: person.john
+    hideIf:
+      data_age: ">24"
+```
+
+The console groups appear as `[Whereabouts] person.john` and expand to show all values, which is useful for diagnosing why conditions like `hideIf: { data_age: ">24" }` do or do not match.
 
 ### Advanced Configuration
 
