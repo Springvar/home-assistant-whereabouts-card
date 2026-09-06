@@ -1,6 +1,6 @@
 {
   "name": "whereabouts-card",
-  "version": "0.2.2",
+  "version": "0.2.1-pre.1",
   "description": "Home Assistant Lovelace card to display person's zone",
   "main": "whereabouts-card.js",
   "scripts": {

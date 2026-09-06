@@ -4,13 +4,7 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased]
 
-## [0.2.3-pre] - 2026-09-06
-
-### Fixed
-
-- `data_age` is now exposed as a condition option in the card editor (hideIf, activities, zone group conditions, and zone group activities), rendered as a numeric operator + hours field
-
-## [0.2.2-pre] - 2026-09-06
+## [0.2.1-pre.1] - 2026-09-06
 
 ### Added
 
@@ -18,6 +12,8 @@ All notable changes to this project are documented in this file.
   - Supported in `hideIf` (e.g. `hideIf: { data_age: ">24" }`) to hide stale/outdated entries.
   - Supported in activity `conditions` (e.g. `data_age: ">24"`) to show a fallback activity for stale presence.
   - The age is computed in hours from the entity's `last_updated`/`last_changed`; a missing entity or timestamp is treated as always stale.
+- **`data_age` editor support** - `data_age` is now selectable in the card editor condition dropdowns (hideIf, activities, zone group conditions, and zone group activities), rendered as a numeric operator + hours field.
+- **`debug` flag** - Set `debug: true` on the card to dump each person's available (entity state, `last_changed`/`last_updated`, computed `data_age_hours`, resolved named-sensor values) and calculated (zone group, activity, location, icon, `hideIf` matching) values to the browser console. See the README.
 
 ## [0.2.1-pre] - 2026-04-21
 
