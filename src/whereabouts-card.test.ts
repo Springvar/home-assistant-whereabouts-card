@@ -416,6 +416,53 @@ describe('WhereaboutsCard', () => {
             debugSpy.mockRestore();
         });
 
+        it('dumps tracker attribution chain in debug output', async () => {
+            const debugSpy = vi.spyOn(console, 'debug');
+            const sourceUpdated = new Date(Date.now() - 14 * 3600000).toISOString();
+            const gpsUpdated = new Date(Date.now() - 14 * 24 * 3600000).toISOString();
+            const hass = createMockHass({
+                'person.john': {
+                    state: 'Trøndelag',
+                    last_changed: sourceUpdated,
+                    last_updated: sourceUpdated,
+                    attributes: {
+                        friendly_name: 'John',
+                        source: 'device_tracker.john_router',
+                        source_timestamp: gpsUpdated,
+                        device_trackers: ['device_tracker.john_phone', 'device_tracker.john_router']
+                    }
+                },
+                'device_tracker.john_phone': {
+                    state: 'Trøndelag',
+                    last_changed: gpsUpdated,
+                    last_updated: gpsUpdated,
+                    attributes: { latitude: 63.4, longitude: 10.4 }
+                },
+                'device_tracker.john_router': {
+                    state: 'Trøndelag',
+                    last_changed: sourceUpdated,
+                    last_updated: sourceUpdated,
+                    attributes: {}
+                }
+            });
+            element.setConfig({ debug: true, persons: [{ entity_id: 'person.john' }] });
+            element.hass = hass;
+            await element.updateComplete;
+
+            const info = debugSpy.mock.calls.map(c => c[0]).find((a) => a && a.entity_id === 'person.john');
+            expect(info).toBeDefined();
+            expect(info.source).toBe('device_tracker.john_router');
+            expect(info.source_timestamp).toBe(gpsUpdated);
+            expect(info.data_age_source_hours).toBeGreaterThan(24);
+            expect(info.trackers).toHaveLength(2);
+            const phone = info.trackers.find((t: any) => t.entity_id === 'device_tracker.john_phone');
+            expect(phone).toBeDefined();
+            expect(phone.data_age_hours).toBeGreaterThan(24 * 13);
+            expect(phone.latitude).toBe(63.4);
+            expect(info.source_tracker.entity_id).toBe('device_tracker.john_router');
+            debugSpy.mockRestore();
+        });
+
         it('does not log when debug is disabled', async () => {
             const debugSpy = vi.spyOn(console, 'debug');
             const hass = createMockHass({

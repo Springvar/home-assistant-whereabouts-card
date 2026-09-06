@@ -449,12 +449,17 @@ class WhereaboutsCard extends LitElement {
         `;
     }
 
+    private computeAgeHoursFromTimestamp(value: any): number | null {
+        if (!value) return null;
+        const timestamp = new Date(value).getTime();
+        if (isNaN(timestamp)) return null;
+        return (Date.now() - timestamp) / 3600000;
+    }
+
     private computeDataAgeHours(entity: any): number | null {
         const lastChanged = entity.last_changed || entity.last_updated;
         if (!lastChanged) return null;
-        const timestamp = new Date(lastChanged).getTime();
-        if (isNaN(timestamp)) return null;
-        return (Date.now() - timestamp) / 3600000;
+        return this.computeAgeHoursFromTimestamp(lastChanged);
     }
 
     private getNestedAttribute(obj: any, path: string): any {
@@ -475,6 +480,42 @@ class WhereaboutsCard extends LitElement {
             info.last_changed = entity.last_changed;
             info.last_updated = entity.last_updated;
             info.data_age_hours = this.computeDataAgeHours(entity);
+
+            const attrs = entity.attributes || {};
+            info.source = attrs.source || undefined;
+            info.source_timestamp = attrs.source_timestamp || undefined;
+            if (info.source_timestamp) {
+                info.data_age_source_hours = this.computeAgeHoursFromTimestamp(info.source_timestamp);
+            }
+
+            if (info.source) {
+                const sourceTracker = this.hass.states?.[info.source];
+                if (sourceTracker) {
+                    info.source_tracker = {
+                        entity_id: info.source,
+                        state: sourceTracker.state,
+                        last_changed: sourceTracker.last_changed,
+                        last_updated: sourceTracker.last_updated,
+                        data_age_hours: this.computeDataAgeHours(sourceTracker)
+                    };
+                } else {
+                    info.source_tracker = { entity_id: info.source, available: false };
+                }
+            }
+
+            info.trackers = (Array.isArray(attrs.device_trackers) ? attrs.device_trackers : []).map((trackerId: string) => {
+                const tracker = this.hass.states?.[trackerId];
+                if (!tracker) return { entity_id: trackerId, available: false };
+                return {
+                    entity_id: trackerId,
+                    state: tracker.state,
+                    last_changed: tracker.last_changed,
+                    last_updated: tracker.last_updated,
+                    data_age_hours: this.computeDataAgeHours(tracker),
+                    latitude: tracker.attributes?.latitude ?? undefined,
+                    longitude: tracker.attributes?.longitude ?? undefined
+                };
+            });
         } else {
             info.state = null;
             info.data_age_hours = null;

@@ -99,7 +99,7 @@ persons:
 
 Set `debug: true` on the card to get a collapsed console group per person with the full set of **available** and **calculated** values:
 
-- `available` - person entity state, `last_changed`, `last_updated`, computed `data_age_hours`, and the resolved state/attribute value of every configured named sensor.
+- `available` - person entity state, `last_changed`, `last_updated`, computed `data_age_hours`, the tracker attribution chain (`source`, `source_timestamp`, `source_tracker`, and each `device_trackers` entry with its own `data_age_hours` and coordinates), and the resolved state/attribute value of every configured named sensor.
 - `calculated` - the matched zone group, evaluated activity (with placeholders resolved), calculated activity rule, effective preposition/location/icon, template variables, and whether the person was hidden by `hideIf`.
 
 ```yaml
