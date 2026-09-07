@@ -509,6 +509,103 @@ describe('WhereaboutsCard', () => {
             debugSpy.mockRestore();
         });
 
+        it('logs tracker diagnostics and time at location in debug output', async () => {
+            const debugSpy = vi.spyOn(console, 'debug');
+            const phoneUpdated = new Date(Date.now() - 14 * 24 * 3600000).toISOString();
+            const routerUpdated = new Date(Date.now() - 2 * 3600000).toISOString();
+            const locatedAt = new Date(Date.now() - 5 * 3600000).toISOString();
+            const hass = createMockHass({
+                'person.john': {
+                    entity_id: 'person.john',
+                    state: 'Trøndelag',
+                    last_changed: locatedAt,
+                    last_updated: routerUpdated,
+                    attributes: {
+                        friendly_name: 'John',
+                        device_trackers: ['device_tracker.john_phone', 'device_tracker.john_router'],
+                        source: 'device_tracker.john_router',
+                        source_timestamp: routerUpdated
+                    }
+                },
+                'device_tracker.john_phone': {
+                    state: 'Trøndelag',
+                    last_changed: phoneUpdated,
+                    last_updated: phoneUpdated,
+                    attributes: { tracking_type: 'position', latitude: 63.4, longitude: 10.4 }
+                },
+                'device_tracker.john_router': {
+                    state: 'Trøndelag',
+                    last_changed: routerUpdated,
+                    last_updated: routerUpdated,
+                    attributes: { tracking_type: 'connection' }
+                }
+            });
+            element.setConfig({ debug: true, persons: [{ entity_id: 'person.john' }] });
+            element.hass = hass;
+            await element.updateComplete;
+
+            const info = debugSpy.mock.calls.map(c => c[0]).find((a) => a && a.entity_id === 'person.john');
+            expect(info).toBeDefined();
+            expect(info.hours_at_location).toBeGreaterThan(4);
+            expect(info.hours_at_location).toBeLessThan(6);
+            expect(info.data_age_trackers).toHaveLength(2);
+            const phone = info.data_age_trackers.find((t: any) => t.entity_id === 'device_tracker.john_phone');
+            expect(phone).toMatchObject({
+                available: true,
+                position: true,
+                tracking_type: 'position',
+                has_coordinates: true,
+                selected: true
+            });
+            expect(phone.data_age_hours).toBeGreaterThan(24 * 13);
+            const router = info.data_age_trackers.find((t: any) => t.entity_id === 'device_tracker.john_router');
+            expect(router).toMatchObject({
+                available: true,
+                position: false,
+                tracking_type: 'connection',
+                has_coordinates: false,
+                selected: false
+            });
+            debugSpy.mockRestore();
+        });
+
+        it('marks missing tracker as unavailable in diagnostics', async () => {
+            const debugSpy = vi.spyOn(console, 'debug');
+            const locatedAt = new Date(Date.now() - 5 * 3600000).toISOString();
+            const hass = createMockHass({
+                'person.john': {
+                    entity_id: 'person.john',
+                    state: 'Trøndelag',
+                    last_changed: locatedAt,
+                    last_updated: locatedAt,
+                    attributes: {
+                        friendly_name: 'John',
+                        device_trackers: ['device_tracker.gone', 'device_tracker.john_router']
+                    }
+                },
+                'device_tracker.john_router': {
+                    state: 'Trøndelag',
+                    last_changed: locatedAt,
+                    last_updated: locatedAt,
+                    attributes: { tracking_type: 'connection' }
+                }
+            });
+            element.setConfig({ debug: true, persons: [{ entity_id: 'person.john' }] });
+            element.hass = hass;
+            await element.updateComplete;
+
+            const info = debugSpy.mock.calls.map(c => c[0]).find((a) => a && a.entity_id === 'person.john');
+            expect(info).toBeDefined();
+            const gone = info.data_age_trackers.find((t: any) => t.entity_id === 'device_tracker.gone');
+            expect(gone.available).toBe(false);
+            expect(gone.position).toBe(false);
+            expect(gone.selected).toBe(false);
+            const router = info.data_age_trackers.find((t: any) => t.entity_id === 'device_tracker.john_router');
+            expect(router.available).toBe(true);
+            expect(info.data_age_basis.reason).toBe('entity');
+            debugSpy.mockRestore();
+        });
+
         it('hides person based on stale position tracker despite fresh person entity', async () => {
             const debugSpy = vi.spyOn(console, 'debug');
             const phoneUpdated = new Date(Date.now() - 14 * 24 * 3600000).toISOString();

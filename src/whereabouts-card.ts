@@ -5,7 +5,7 @@ import type { WhereaboutsCardEditor } from './whereabouts-card-editor';
 import { ActivityCalculator } from './activity-calculator';
 import { ActivityEvaluator, type EvaluatedActivity } from './activity-evaluator';
 import { matchConditions } from './condition-matcher';
-import { getDataAgeHours, getDataAgeBasis } from './data-age';
+import { getDataAgeHours, getDataAgeBasis, getTrackerDiagnostics, getHoursAtLocation } from './data-age';
 import type { CalculatedActivity, PersonConfig as PersonConfigType, Activity } from './types';
 
 // Use extended PersonConfig from types.ts
@@ -482,6 +482,8 @@ class WhereaboutsCard extends LitElement {
             info.last_updated = entity.last_updated;
             info.data_age_hours = getDataAgeHours(entity, (entityId) => this.hass.states?.[entityId]);
             info.data_age_basis = getDataAgeBasis(entity, (entityId) => this.hass.states?.[entityId]);
+            info.data_age_trackers = getTrackerDiagnostics(entity, (entityId) => this.hass.states?.[entityId]);
+            info.hours_at_location = getHoursAtLocation(entity);
 
             const attrs = entity.attributes || {};
             info.source = attrs.source || undefined;
